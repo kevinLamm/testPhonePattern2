@@ -731,27 +731,13 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
    let rgba = new cv.Mat();
    cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
 
-   // Display the processed frame on the visible canvas.
+   // Step 5: Display the processed frame on the visible canvas.
    cv.imshow("canvas", rgba);
     
    
-   // Step 5: Create an ImageData object from the OpenCV Mat data.
-   // Note: Ensure that rgba.data is a Uint8Array.
-   //let imgData = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
    
-   // Step 6: Get the 2D drawing context of the target canvas.
-   // Replace 'canvasId' with the id of your canvas element.
 
-   //let ctx = canvas.getContext("2d");
-   
-   // Adjust the canvas size to match the image dimensions.
-   //canvas.width = rgba.cols;
-   //canvas.height = rgba.rows;
-   
-   // Draw the ImageData (edges) onto the canvas.
-   //ctx.putImageData(imgData, 0, 0);
-
-   console.log("panorama processed.");
+   console.log("panorama processing complete.");
 
   // Clean up: Delete any temporary Mats to free memory.
   processedPanorama.delete();
