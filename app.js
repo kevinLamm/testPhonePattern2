@@ -692,63 +692,71 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
     }
 
     async function endHomoProcess(event) {
-      
       event.preventDefault();
       
       homoProcessing = false;
-  // Stop the video.
-  // Assume 'video' is a global HTMLVideoElement used to stream or play your video.
-  if (video) {
-    video.pause();
-  }
-
-  // If you're using requestAnimationFrame for processing, cancel it here.
-  // Example:
-  // if (videoProcessingAnimationFrame) {
-  //   cancelAnimationFrame(videoProcessingAnimationFrame);
-  // }
-
-  // Check that we have a valid panorama to process.
-  if (!panorama) {
-    console.log("No panorama available for further processing.");
-    return;
-  }
-
-  // Further process the panorama.
-  // Example: Convert to grayscale, apply a Gaussian blur, and perform Canny edge detection.
-  let processedPanorama = new cv.Mat();
-  cv.cvtColor(panorama, processedPanorama, cv.COLOR_RGBA2GRAY);
-
-  let blurredPanorama = new cv.Mat();
-  let ksize = new cv.Size(5, 5);
-  cv.GaussianBlur(processedPanorama, blurredPanorama, ksize, 0, 0, cv.BORDER_DEFAULT);
-
-   // Step 3: Run Canny edge detection.
-   let edges = new cv.Mat();
-   cv.Canny(blurredPanorama, edges, 50, 150);
-   
-   // Step 4: Convert the edge Mat (grayscale) to RGBA format for canvas drawing.
-   let rgba = new cv.Mat();
-   cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
-
-   // Step 5: Display the processed frame on the visible canvas.
-   cv.imshow("canvas", rgba);
-    
-   
-   
-
-   console.log("panorama processing complete.");
-
-  // Clean up: Delete any temporary Mats to free memory.
-  processedPanorama.delete();
-  blurredPanorama.delete();
-  edges.delete();
-
-  // Optionally, if you no longer need the original panorama, free it.
-  panorama.delete();
-  panorama = null;
-    }
       
+      // Stop the video.
+      if (video) {
+        video.pause();
+      }
+      
+      // Check that we have a valid panorama to process.
+      if (!panorama) {
+        console.log("No panorama available for further processing.");
+        return;
+      }
+      
+      // Convert the panorama to grayscale.
+      let processedPanorama = new cv.Mat();
+      cv.cvtColor(panorama, processedPanorama, cv.COLOR_RGBA2GRAY);
+      
+      // Apply Gaussian blur to smooth the image.
+      let blurredPanorama = new cv.Mat();
+      let ksize = new cv.Size(5, 5);
+      cv.GaussianBlur(processedPanorama, blurredPanorama, ksize, 0, 0, cv.BORDER_DEFAULT);
+      
+      // Run Canny edge detection.
+      let edges = new cv.Mat();
+      cv.Canny(blurredPanorama, edges, 50, 150);
+      
+      // Convert the edge Mat (which is in grayscale) to RGBA for canvas drawing.
+      let rgba = new cv.Mat();
+      cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
+      
+      // Get the canvas and its 2D context.
+      let canvas = document.getElementById("canvas");
+      if (!canvas) {
+        console.error("Canvas element with id 'canvas' not found.");
+        return;
+      }
+      let ctx = canvas.getContext("2d");
+      
+      // Optionally, adjust the canvas size to match the processed image dimensions.
+      canvas.width = rgba.cols;
+      canvas.height = rgba.rows;
+      
+      // Create an ImageData object from the rgba data.
+      // Note: rgba.data is a Uint8Array; wrap it in Uint8ClampedArray for ImageData.
+      let imgData = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
+      
+      // Draw the image data onto the canvas.
+      ctx.putImageData(imgData, 0, 0);
+      
+      console.log("panorama processing complete.");
+      console.log("Panorama Images combined:", panoramaCount);
+      
+      // Clean up: Delete temporary Mats to free memory.
+      processedPanorama.delete();
+      blurredPanorama.delete();
+      edges.delete();
+      rgba.delete();
+      
+      // Optionally, if you no longer need the original panorama, free it.
+      panorama.delete();
+      panorama = null;
+    }
+    
      
   
 
