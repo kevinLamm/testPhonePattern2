@@ -747,6 +747,8 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
    // Draw the ImageData (edges) onto the canvas.
    ctx.putImageData(imgData, 0, 0);
 
+   console.log("panorama processed.");
+
   // Clean up: Delete any temporary Mats to free memory.
   processedPanorama.delete();
   blurredPanorama.delete();
