@@ -27,7 +27,8 @@ let threshInvert = false;
 // Global variables for storing data from each frame
 let lastLargestContour = null;
 let lastMarkerHomography = null; // Homography computed from the marker corners
-let addHomography = document.getElementById("add-homography");  // Visible canvas for display
+
+let homoBtn = document.getElementById("homo-btn");  // Visible canvas for display
 
 
 let project = {
@@ -188,9 +189,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !cameraView.classList.contains('hidden')) {
       startCamera("environment");
     }
-    if (document.visibilityState === 'visible' && !homoView.classList.contains('hidden')) {
-      startCamera("environment");
-    }
+    
   });
 
   let wakeLock = null;
