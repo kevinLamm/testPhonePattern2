@@ -27,6 +27,8 @@ let threshInvert = false;
 // Global variables for storing data from each frame
 let lastLargestContour = null;
 let lastMarkerHomography = null; // Homography computed from the marker corners
+let homoImage = null;
+let homoProcessing = false;
 
 let homoBtn = document.getElementById("homo-btn");  // Visible canvas for display
 
@@ -129,6 +131,7 @@ function toggleCameraView() {
         }
       } else {
         homoBtn.classList.add('hidden');
+        
       
         if (slider.classList.contains('hidden')) {
           slider.classList.remove('hidden');
@@ -141,6 +144,7 @@ function toggleCameraView() {
     } else {
       // If it's visible, hide it and stop the camera stream.
       cameraView.classList.add('hidden');
+      homo = false;
       releaseWakeLock();
       // Stop the stream if it exists.
       if (currentStream) {
@@ -482,6 +486,10 @@ function processFrame() {
     ctx2d.stroke();
     ctx2d.restore();
     
+    if (homo && homoProcessing){
+      homoProcess(src);
+    }
+
     src.delete();
     requestAnimationFrame(processFrame);
 }
@@ -539,6 +547,67 @@ async function captureProcess(event) {
         }
     }
     
+
+
+    // ----------------------- Homography Stitching ----------------------
+
+    let contoursCollection = null;
+
+    async function startHomoProcess(event) {
+      
+      event.preventDefault();
+      updateDebugLabel("Pattern Building Started!");
+
+      contoursCollection = [];
+      homoProcessing = true;
+      
+      
+    }
+
+    function homoProcess(src) {
+     
+
+      // Check that both the marker homography and the stored largest contour are available.
+      if (!lastMarkerHomography) {
+        updateDebugLabel("The Pattern Building won't start until you capture the Marker.");
+       
+        return;
+    }
+   
+        try {
+
+          // stitch every 6th frame and store as homoImageCollection and identify contours
+          updateDebugLabel("Marker Captured! Proceed with Scanning Patterns. Patterns found: " + contoursCollection.length);
+            
+        } catch (err) {
+          updateDebugLabel("Error capturing patterns: " + err);
+      }
+
+    }
+
+    async function endHomoProcess(event) {
+      
+      event.preventDefault();
+      
+      homoProcessing = false;
+  
+      // Check that both the marker homography and the stored largest contour are available.
+      if (!lastMarkerHomography || !homoImageCollection) {
+          updateDebugLabel("Pattern Building not completed. Either, no Marker was detected or Pattern contours were created.");
+         
+          return;
+      }
+     
+          try {
+
+            // Process the homoImageCollection
+              
+          } catch (err) {
+            updateDebugLabel("Error processing patterns: " + err);
+        }
+    }
+      
+     
   
 
 // ---------------- Event Listeners ----------------
@@ -596,7 +665,23 @@ slider.addEventListener("touchend", (e) => {
 
 
 
+// On start (mousedown/touchstart), start processing ORB Homography stitching.
+homoBtn.addEventListener("mousedown", () => {
+  startHomoProcess(e);
+});
+homoBtn.addEventListener("touchstart", () => {
+  startHomoProcess(e);
+});
 
+
+
+// On release, end processing ORB Homography stitching and complete the image contours.
+homoBtn.addEventListener("mouseup", (e) => {
+  endHomoProcess(e);
+});
+homoBtn.addEventListener("touchend", (e) => {
+  endHomoProcess(e);
+});
 
 
 
