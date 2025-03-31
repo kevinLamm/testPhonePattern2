@@ -694,6 +694,8 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
     async function endHomoProcess(event) {
       event.preventDefault();
       
+      // Stop further processing so processFrame doesn't overwrite the canvas.
+      processing = false;
       homoProcessing = false;
       
       // Stop the video.
@@ -701,7 +703,6 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         video.pause();
       }
       
-      // Check that we have a valid panorama to process.
       if (!panorama) {
         console.log("No panorama available for further processing.");
         return;
@@ -711,7 +712,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       let processedPanorama = new cv.Mat();
       cv.cvtColor(panorama, processedPanorama, cv.COLOR_RGBA2GRAY);
       
-      // Apply Gaussian blur to smooth the image.
+      // Apply Gaussian blur.
       let blurredPanorama = new cv.Mat();
       let ksize = new cv.Size(5, 5);
       cv.GaussianBlur(processedPanorama, blurredPanorama, ksize, 0, 0, cv.BORDER_DEFAULT);
@@ -720,7 +721,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       let edges = new cv.Mat();
       cv.Canny(blurredPanorama, edges, 50, 150);
       
-      // Convert the edge Mat (which is in grayscale) to RGBA for canvas drawing.
+      // Convert the edge Mat to RGBA.
       let rgba = new cv.Mat();
       cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
       
@@ -732,30 +733,29 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       }
       let ctx = canvas.getContext("2d");
       
-      // Optionally, adjust the canvas size to match the processed image dimensions.
+      // Adjust the canvas size to match the processed image.
       canvas.width = rgba.cols;
       canvas.height = rgba.rows;
       
       // Create an ImageData object from the rgba data.
-      // Note: rgba.data is a Uint8Array; wrap it in Uint8ClampedArray for ImageData.
       let imgData = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
       
       // Draw the image data onto the canvas.
       ctx.putImageData(imgData, 0, 0);
       
       console.log("panorama processing complete.");
-      console.log("Panorama Images combined:", panoramaCount);
       
-      // Clean up: Delete temporary Mats to free memory.
+      // Clean up temporary Mats.
       processedPanorama.delete();
       blurredPanorama.delete();
       edges.delete();
       rgba.delete();
       
-      // Optionally, if you no longer need the original panorama, free it.
+      // Free the original panorama if no longer needed.
       panorama.delete();
       panorama = null;
     }
+    
     
      
   
