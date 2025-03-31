@@ -15,17 +15,21 @@ video.style.display = "none";
 document.body.appendChild(video);
 let canvas = document.getElementById("canvas");  // Visible canvas for display
 let processingCanvas = document.getElementById("processing-canvas"); // Offscreen canvas for processing
+let canvasHomo = document.getElementById("canvas-homo");  // Visible canvas for display
+let processingCanvasHomo = document.getElementById("processing-canvas-homo"); // Offscreen canvas for processing
 let ctx = canvas.getContext("2d");
+let ctxHomo = canvasHomo.getContext("2d");
 //const captureButton = document.getElementById("capture-process");
 const cameraView = document.getElementById('camera-view');
+const homoView = document.getElementById('homo-view');
 let activePatternIndex = null;
 let threshValue = 220;
 let threshInvert = false;
 // Global variables for storing data from each frame
 let lastLargestContour = null;
 let lastMarkerHomography = null; // Homography computed from the marker corners
+let addHomography = document.getElementById("add-homography");  // Visible canvas for display
 
- 
 
 let project = {
     name: "",
@@ -54,12 +58,15 @@ window.addEventListener("load", () => {
     };
     const menu = document.getElementById('menu-nav');
   
+  document.getElementById('add-homography').addEventListener('click', () => {
+    toggleHomoView();
+  });
+  
   document.getElementById('menu-btn').addEventListener('click', () => {
     console.log("Is aruco installed?");
   
     menu.classList.toggle('hidden');
   });
-  
   document.getElementById('new-project').addEventListener('click', () => {
     project.name = "";
     project.patterns = [];
@@ -103,6 +110,12 @@ window.addEventListener("load", () => {
 
 
   });
+  document.getElementById('close-homo').addEventListener('click', () => {
+    toggleHomoView();
+    // Global variables for storing data from each frame
+
+
+  });
   
 });
 
@@ -110,11 +123,32 @@ function toggleCameraView() {
     // If the camera view is currently hidden, show it and start the camera.
     if (cameraView.classList.contains('hidden')) {
       cameraView.classList.remove('hidden');
+      slider.value = parseInt(threshValue, 10);
       requestWakeLock();
       startCamera("environment");
     } else {
       // If it's visible, hide it and stop the camera stream.
       cameraView.classList.add('hidden');
+      releaseWakeLock();
+      // Stop the stream if it exists.
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+        lastLargestContour = null;
+        lastMarkerHomography = null; // Homography computed from the marker corners
+      }
+    }
+  }
+
+  function toggleHomoView() {    
+    // If the camera view is currently hidden, show it and start the camera.
+    if (homoView.classList.contains('hidden')) {
+      homoView.classList.remove('hidden');
+      requestWakeLock();
+      startCamera("environment");
+    } else {
+      // If it's visible, hide it and stop the camera stream.
+      homoView.classList.add('hidden');
       releaseWakeLock();
       // Stop the stream if it exists.
       if (currentStream) {
@@ -159,6 +193,9 @@ document.addEventListener('visibilitychange', () => {
    
     // Only reinitialize the camera if the page is visible and the camera-view is not hidden.
     if (document.visibilityState === 'visible' && !cameraView.classList.contains('hidden')) {
+      startCamera("environment");
+    }
+    if (document.visibilityState === 'visible' && !homoView.classList.contains('hidden')) {
       startCamera("environment");
     }
   });
