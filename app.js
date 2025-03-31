@@ -553,6 +553,21 @@ async function captureProcess(event) {
 
     // ----------------------- Homography Stitching ----------------------
 
+    // Global variables to hold the reference panorama and its features.
+let panorama = null;
+let refGray = null;
+let refKeypoints = null;
+let refDescriptors = null;
+let panoramaCount = 0;
+
+// Create ORB detector and BFMatcher (using Hamming distance for ORB).
+let orb = new cv.ORB(); // Alternatively, cv.ORB.create() depending on your OpenCV.js version.
+let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
+
+/**
+ * Process a new frame (src) and stitch it into the panorama.
+ * @param {cv.Mat} src - The current frame read from processingCanvas.
+ */
     let contoursCollection = null;
 
     async function startHomoProcess() {
@@ -568,23 +583,111 @@ async function captureProcess(event) {
     function homoProcess(src) {
      
 
-      // Check that both the marker homography and the stored largest contour are available.
-      //if (!lastMarkerHomography) {
-       // updateDebugLabel("The Pattern Building won't start until you capture the Marker.");
-       
-      //  return;
-   // }
-   
-        try {
+      // Convert current frame to grayscale.
+  let gray = new cv.Mat();
+  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-          // stitch every 6th frame and store as homoImageCollection and identify contours
-          console.log(contoursCollection.length);
+  // Detect keypoints and compute descriptors for the current frame.
+  let keypoints = new cv.KeyPointVector();
+  let descriptors = new cv.Mat();
+  orb.detectAndCompute(gray, new cv.Mat(), keypoints, descriptors);
 
-          //updateDebugLabel("Marker Captured! Proceed with Scanning Patterns. Patterns found: " + contoursCollection.length);
-            
-        } catch (err) {
-          updateDebugLabel("Error capturing patterns: " + err);
-      }
+  // If this is the first frame, initialize the panorama and reference features.
+  if (panorama === null) {
+    panorama = src.clone();
+    refGray = gray.clone();
+    refKeypoints = keypoints; // Save keypoints (note: we pass the object reference).
+    refDescriptors = descriptors.clone();
+    
+    // Cleanup the current grayscale image (but keep keypoints for future use).
+    gray.delete();
+    descriptors.delete();
+    return;
+  }
+
+  // Match features between the reference (panorama) and current frame.
+  let matches = new cv.DMatchVector();
+  bfMatcher.match(refDescriptors, descriptors, matches);
+
+  // Convert matches to an array for sorting by distance.
+  let goodMatches = [];
+  for (let i = 0; i < matches.size(); i++) {
+    goodMatches.push(matches.get(i));
+  }
+  goodMatches.sort((a, b) => a.distance - b.distance);
+
+  // Use a fixed number of the best matches (ensure we have enough for homography).
+  const numGoodMatches = Math.min(50, goodMatches.length);
+  if (numGoodMatches < 4) {
+    console.log("Not enough matches to compute homography.");
+    // Cleanup temporary objects.
+    gray.delete();
+    keypoints.delete();
+    descriptors.delete();
+    matches.delete();
+    return;
+  }
+
+  // Prepare point arrays for homography computation.
+  let refPoints = [];
+  let curPoints = [];
+  for (let i = 0; i < numGoodMatches; i++) {
+    let m = goodMatches[i];
+    // For each match, get the point from the reference image and the current frame.
+    let kpRef = refKeypoints.get(m.queryIdx);
+    let kpCur = keypoints.get(m.trainIdx);
+    refPoints.push(kpRef.pt.x, kpRef.pt.y);
+    curPoints.push(kpCur.pt.x, kpCur.pt.y);
+  }
+
+  // Convert the point arrays into cv.Mat objects.
+  let refMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, refPoints);
+  let curMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, curPoints);
+
+  // Compute homography that maps current frame points to the reference frame.
+  let mask = new cv.Mat();
+  let homography = cv.findHomography(curMat, refMat, cv.RANSAC, 5.0, mask);
+  if (homography.empty()) {
+    console.log("Homography computation failed.");
+    // Cleanup allocated mats.
+    gray.delete(); keypoints.delete(); descriptors.delete();
+    matches.delete(); refMat.delete(); curMat.delete(); mask.delete();
+    return;
+  }
+
+  // Warp the current frame so that it aligns with the panorama.
+  // Here, we assume a new panorama size that is wider than the current one.
+  let dsize = new cv.Size(panorama.cols + src.cols, panorama.rows);
+  let warped = new cv.Mat();
+  cv.warpPerspective(src, warped, homography, dsize);
+
+  // Blend the warped current frame with the existing panorama.
+  // In this simple example, we copy the current panorama into the warped image.
+  let result = warped.clone();
+  let roi = result.roi(new cv.Rect(0, 0, panorama.cols, panorama.rows));
+  panorama.copyTo(roi);
+  roi.delete();
+
+  // Update the global panorama with the blended result.
+  panorama.delete();
+  panorama = result;
+
+  // Update reference features with the current frame's data.
+  if (refGray) { refGray.delete(); }
+  refGray = gray.clone();
+  if (refDescriptors) { refDescriptors.delete(); }
+  refDescriptors = descriptors.clone();
+
+  // For keypoints, we need to free the old vector if necessary.
+  if (refKeypoints) { refKeypoints.delete(); }
+  refKeypoints = keypoints; // Reuse the current keypoints as the new reference.
+
+  // Cleanup temporary objects.
+  matches.delete(); refMat.delete(); curMat.delete();
+  mask.delete(); warped.delete();
+  gray.delete(); descriptors.delete();
+  panoramaCount++;
+  console.log("Panorama Images combined:", panoramaCount);
 
     }
 
@@ -593,21 +696,65 @@ async function captureProcess(event) {
       event.preventDefault();
       
       homoProcessing = false;
-  
-      // Check that both the marker homography and the stored largest contour are available.
-      if (!lastMarkerHomography || !homoImageCollection) {
-          updateDebugLabel("Pattern Building not completed. Either, no Marker was detected or no pattern contours were found.");
-         
-          return;
-      }
-     
-          try {
+  // Stop the video.
+  // Assume 'video' is a global HTMLVideoElement used to stream or play your video.
+  if (video) {
+    video.pause();
+  }
 
-            // Process the homoImageCollection
-              
-          } catch (err) {
-            updateDebugLabel("Error processing patterns: " + err);
-        }
+  // If you're using requestAnimationFrame for processing, cancel it here.
+  // Example:
+  // if (videoProcessingAnimationFrame) {
+  //   cancelAnimationFrame(videoProcessingAnimationFrame);
+  // }
+
+  // Check that we have a valid panorama to process.
+  if (!panorama) {
+    console.log("No panorama available for further processing.");
+    return;
+  }
+
+  // Further process the panorama.
+  // Example: Convert to grayscale, apply a Gaussian blur, and perform Canny edge detection.
+  let processedPanorama = new cv.Mat();
+  cv.cvtColor(panorama, processedPanorama, cv.COLOR_RGBA2GRAY);
+
+  let blurredPanorama = new cv.Mat();
+  let ksize = new cv.Size(5, 5);
+  cv.GaussianBlur(processedPanorama, blurredPanorama, ksize, 0, 0, cv.BORDER_DEFAULT);
+
+   // Step 3: Run Canny edge detection.
+   let edges = new cv.Mat();
+   cv.Canny(blurredPanorama, edges, 50, 150);
+   
+   // Step 4: Convert the edge Mat (grayscale) to RGBA format for canvas drawing.
+   let rgba = new cv.Mat();
+   cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
+   
+   // Step 5: Create an ImageData object from the OpenCV Mat data.
+   // Note: Ensure that rgba.data is a Uint8Array.
+   let imgData = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
+   
+   // Step 6: Get the 2D drawing context of the target canvas.
+   // Replace 'canvasId' with the id of your canvas element.
+
+   let ctx = canvas.getContext("2d");
+   
+   // Adjust the canvas size to match the image dimensions.
+   //canvas.width = rgba.cols;
+   //canvas.height = rgba.rows;
+   
+   // Draw the ImageData (edges) onto the canvas.
+   ctx.putImageData(imgData, 0, 0);
+
+  // Clean up: Delete any temporary Mats to free memory.
+  processedPanorama.delete();
+  blurredPanorama.delete();
+  edges.delete();
+
+  // Optionally, if you no longer need the original panorama, free it.
+  panorama.delete();
+  panorama = null;
     }
       
      
