@@ -485,8 +485,10 @@ function processFrame() {
     ctx2d.strokeStyle = "white";
     ctx2d.stroke();
     ctx2d.restore();
+
+    frameCount++;
     
-    if (homo && homoProcessing){
+    if (homo && homoProcessing && frameCount % 6 === 0){
       homoProcess(src);
     }
 
@@ -494,7 +496,7 @@ function processFrame() {
     requestAnimationFrame(processFrame);
 }
 
-
+let frameCount = 0;
 
 // ---------------- High Resolution Capture Processing ----------------
 
@@ -567,16 +569,18 @@ async function captureProcess(event) {
      
 
       // Check that both the marker homography and the stored largest contour are available.
-      if (!lastMarkerHomography) {
-        updateDebugLabel("The Pattern Building won't start until you capture the Marker.");
+      //if (!lastMarkerHomography) {
+       // updateDebugLabel("The Pattern Building won't start until you capture the Marker.");
        
-        return;
-    }
+      //  return;
+   // }
    
         try {
 
           // stitch every 6th frame and store as homoImageCollection and identify contours
-          updateDebugLabel("Marker Captured! Proceed with Scanning Patterns. Patterns found: " + contoursCollection.length);
+          console.log(contoursCollection.length);
+
+          //updateDebugLabel("Marker Captured! Proceed with Scanning Patterns. Patterns found: " + contoursCollection.length);
             
         } catch (err) {
           updateDebugLabel("Error capturing patterns: " + err);
@@ -592,7 +596,7 @@ async function captureProcess(event) {
   
       // Check that both the marker homography and the stored largest contour are available.
       if (!lastMarkerHomography || !homoImageCollection) {
-          updateDebugLabel("Pattern Building not completed. Either, no Marker was detected or Pattern contours were created.");
+          updateDebugLabel("Pattern Building not completed. Either, no Marker was detected or no pattern contours were found.");
          
           return;
       }
