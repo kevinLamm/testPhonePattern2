@@ -124,7 +124,7 @@ function toggleCameraView() {
       slider.value = parseInt(threshValue, 10);
       if (homo) {
         slider.classList.add('hidden');
-        if (homoBtm.classList.contains('hidden')) {
+        if (homoBtn.classList.contains('hidden')) {
           homoBtn.classList.remove('hidden');
         }
       } else {
