@@ -15,13 +15,12 @@ video.style.display = "none";
 document.body.appendChild(video);
 let canvas = document.getElementById("canvas");  // Visible canvas for display
 let processingCanvas = document.getElementById("processing-canvas"); // Offscreen canvas for processing
-let canvasHomo = document.getElementById("canvas-homo");  // Visible canvas for display
-let processingCanvasHomo = document.getElementById("processing-canvas-homo"); // Offscreen canvas for processing
+
 let ctx = canvas.getContext("2d");
-let ctxHomo = canvasHomo.getContext("2d");
+
 //const captureButton = document.getElementById("capture-process");
 const cameraView = document.getElementById('camera-view');
-const homoView = document.getElementById('homo-view');
+
 let activePatternIndex = null;
 let threshValue = 220;
 let threshInvert = false;
@@ -39,6 +38,7 @@ let project = {
 let currentStream = null;
 let useBackCamera = true; // Default to back camera
 let processing = true; // Enable processing
+let homo = false;
 
 
 
@@ -59,7 +59,8 @@ window.addEventListener("load", () => {
     const menu = document.getElementById('menu-nav');
   
   document.getElementById('add-homography').addEventListener('click', () => {
-    toggleHomoView();
+    homo = true;
+    toggleCameraView();
   });
   
   document.getElementById('menu-btn').addEventListener('click', () => {
@@ -105,17 +106,13 @@ window.addEventListener("load", () => {
   });
   
   document.getElementById('close-camera').addEventListener('click', () => {
+    homo = false;
     toggleCameraView();
     // Global variables for storing data from each frame
 
 
   });
-  document.getElementById('close-homo').addEventListener('click', () => {
-    toggleHomoView();
-    // Global variables for storing data from each frame
-
-
-  });
+  
   
 });
 
@@ -124,6 +121,20 @@ function toggleCameraView() {
     if (cameraView.classList.contains('hidden')) {
       cameraView.classList.remove('hidden');
       slider.value = parseInt(threshValue, 10);
+      if (homo) {
+        slider.classList.add('hidden');
+        if (homoBtm.classList.contains('hidden')) {
+          homoBtn.classList.remove('hidden');
+        }
+      } else {
+        homoBtn.classList.add('hidden');
+      
+        if (slider.classList.contains('hidden')) {
+          slider.classList.remove('hidden');
+
+      }
+    }
+    
       requestWakeLock();
       startCamera("environment");
     } else {
@@ -140,25 +151,7 @@ function toggleCameraView() {
     }
   }
 
-  function toggleHomoView() {    
-    // If the camera view is currently hidden, show it and start the camera.
-    if (homoView.classList.contains('hidden')) {
-      homoView.classList.remove('hidden');
-      requestWakeLock();
-      startCamera("environment");
-    } else {
-      // If it's visible, hide it and stop the camera stream.
-      homoView.classList.add('hidden');
-      releaseWakeLock();
-      // Stop the stream if it exists.
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-        lastLargestContour = null;
-        lastMarkerHomography = null; // Homography computed from the marker corners
-      }
-    }
-  }
+  
 
   video.addEventListener("stalled", () => {
     if (currentStream) {
@@ -251,6 +244,7 @@ async function startCamera(facingMode = "environment") {
             canvas.height = window.innerHeight;
             processingCanvas.width = window.innerWidth;
             processingCanvas.height = window.innerHeight;
+            
 
             processFrame(); // Start processing
 
@@ -492,6 +486,8 @@ function processFrame() {
     src.delete();
     requestAnimationFrame(processFrame);
 }
+
+
 
 // ---------------- High Resolution Capture Processing ----------------
 
