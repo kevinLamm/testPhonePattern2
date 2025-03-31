@@ -1,0 +1,340 @@
+/* --- Reset and Base Styles --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    line-height: 1.5;
+  }
+  
+  /* --- Header & Navigation --- */
+  header {
+    background: #333;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+  
+  header button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  /* Hamburger Menu */
+  #menu-nav {
+    position: absolute;
+    top: 60px;
+    left: 10px;
+    background: #444;
+    padding: 10px;
+    border-radius: 5px;
+    
+  }
+  
+  #menu-nav ul {
+    list-style: none;
+  }
+  
+  #menu-nav li {
+    margin: 5px 0;
+  }
+  
+  #menu-nav button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  
+  /* When visible */
+  #menu-nav.active {
+    display: block;
+  }
+  
+  /* --- Main Content --- */
+  main {
+    padding: 20px;
+  }
+
+  button {
+    padding: 15px 15px;
+    font-size: 16px;
+    cursor: pointer;
+
+        user-select: none;
+        -webkit-user-select: none; /* Safari */
+        -moz-user-select: none;    /* Firefox */
+        -ms-user-select: none;     /* IE/Edge */
+    
+}
+  
+  /* Project Header */
+  #project-header {
+    margin-bottom: 20px;
+  }
+  
+  #project-name {
+    width: 100%;
+    padding: 10px;
+    font-size: 18px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  
+  /* --- Pattern List --- */
+  #pattern-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .pattern-row {
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  /* Inputs for pattern row */
+  .pattern-row input[type="text"],
+  .pattern-row input[type="number"],
+  .pattern-row textarea {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    flex: 1;
+  }
+  
+  /* Preview Canvas in each pattern row */
+  .pattern-preview {
+    border: 1px solid #ccc;
+   
+    
+  }
+  .row-buttons-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; /* Distribute items evenly with space between */
+
+  }
+  /* Buttons inside pattern row */
+  .pattern-row button {
+    padding: 10px 10px;
+   
+    background: #fff;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  #camera-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  /* Position the close button at the top right */
+  #close-camera {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    top: 0;
+    left: 0;
+    background: transparent;
+    border: none;
+    font-size: 28px;
+    color: transparent;
+    cursor: pointer;
+  }
+  
+  
+  .hidden {
+    display: none !important;
+  }
+
+#canvas-container {
+    margin:0;
+    position: relative;
+    display: inline-block;
+    height: 100%;
+    max-height: 2200px;
+    min-width: 400px; /* Ensure the container has some width */
+  }
+  
+  /* Rotate the slider to be vertical */
+#vertical-slider {
+    position: absolute;
+    bottom: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px; /* adjust width as needed */
+    
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent; /* removes blue highlight on tap */
+  appearance: none;
+  background: transparent; /* Ensure no default background */
+  outline: none;
+  }
+
+  #vertical-slider::-ms-thumb {
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, transparent 60%, white 60%);
+    border: none;
+    border-radius: 50%;
+    border: none;
+  cursor: pointer;
+  outline: none;
+  }
+  
+  /* Style the thumb for WebKit browsers */
+#vertical-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, transparent 60%, white 60%);
+    border: none;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    /* Adjust margin so the thumb is centered on the track */
+    margin-top: -30px; /* tweak this value as needed */
+  }
+  
+  /* When pressed, change thumb color to grey */
+  #vertical-slider:active::-webkit-slider-thumb {
+    background: radial-gradient(circle, transparent 60%, #bbb 60%);
+  }
+  
+  #vertical-slider::-moz-range-thumb {
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, transparent 60%, white 60%);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  #vertical-slider:active::-moz-range-thumb {
+    background: radial-gradient(circle, transparent 60%, #bbb 60%);
+  }
+
+  
+  
+  #vertical-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, white 0%, black 45%, black 55%, white 100%);
+    border-radius: 10px;
+    height:20px;
+  }
+
+  #vertical-slider::-moz-range-track {
+    background: linear-gradient(to right, white 0%, black 45%, black 55%, white 100%);
+    border-radius: 10px;
+    height:20px;
+  }
+  
+  #vertical-slider::-ms-fill-lower {
+    background: linear-gradient(to right, white 0%, black 45%, black 50%);
+    border-radius: 10px;
+    height:20px;
+  }
+  #vertical-slider::-ms-fill-upper {
+    background: linear-gradient(to right, black 50%, black 55%, white 100%);
+    border-radius: 10px;
+    height:20px;
+  }
+  
+  
+
+  #capture-process {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    height: 80px;
+    width: 80px;
+    background: #fff;
+    color: #fff;
+    cursor: pointer;
+  }
+
+
+#splash-screen {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  
+  #splash-screen img {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 20px;
+  }
+  
+  #splash-screen p {
+    font-size: 18px;
+    font-family: sans-serif;
+  }
+  
+  #pattern-preview-container {
+    display:block;
+    position: relative;
+  }
+  
+  #pattern-preview-container .icon-camera {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 64px;
+    height: 64px;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+  }
+  
+  #pattern-preview-container .pattern-preview {
+    position: relative;
+    z-index: 1;
+  }
+
+  #pattern-preview-container .edit-pattern {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 2;
+    margin: 10px;
+  }

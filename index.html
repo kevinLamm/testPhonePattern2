@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-startup-image" href="icon512.png">
+  <link rel="icon" sizes="192x192" href="icon.png">
+  <title>Camera OpenCV App</title>
+  <!-- Make sure onOpenCvReady is defined before opencv.js -->
+  <script>
+    function onOpenCvReady() {
+      console.log("OpenCV is ready");
+    }
+  </script>
+  <script src="https://docs.opencv.org/5.0.0-alpha/opencv.js" onload="onOpenCvReady();"></script>
+ 
+  
+  
+  <script src="libs/dxf-doc.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide-solid@latest/dist/umd/lucide-solid.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header with Hamburger Menu and Settings -->
+  <header>
+    <div id="hamburger-menu">
+      <button id="menu-btn"><i data-lucide="menu"></i></button>
+      <nav id="menu-nav" class="hidden">
+        <ul>
+          <li><button id="new-project" title="New Project"><i data-lucide="file-plus"></i></button></li>
+          <li><button id="open-project" title="Open Project" class="disable"><i data-lucide="folder-open"></i></button></li>
+          <li><button id="save-project" title="Save Project" class="disable"><i data-lucide="save"></i></button></li>
+          <li><button id="share-project" title="Share Project"><i data-lucide="share-2"></i></button></li>
+          <li><button id="marker-btn" title="Marker"><i data-lucide="scan-qr-code"></i></button></li>
+          <li><button id="settings-btn" title="Settings"><i data-lucide="settings"></i></button></li>
+        </ul>
+      </nav>
+    </div>
+    
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Project Name -->
+    <div id="project-header">
+      <input type="text" id="project-name" placeholder="Project Name" />
+      <button id="add-homography"><i data-lucide="video"></i></button>
+    </div>
+
+    <!-- Pattern List -->
+    <div id="pattern-list">
+      
+    
+      <button id="add-pattern"><i data-lucide="list-plus"></i></button>
+    </div>
+
+   
+  </main>
+
+  <!-- Splash Screen (if still used) -->
+  <div id="splash-screen">
+    <img src="icon512.png" alt="App Icon" />
+    <p>Loading...</p>
+  </div>
+
+  <div id="camera-view" class="hidden">
+    
+    <div id="canvas-container">
+      <canvas id="canvas"></canvas>
+      <canvas id="processing-canvas" style="position: absolute; left: -9999px; display:none;"></canvas>  
+    </div>
+    <div id="debug-label"  style="position: absolute; bottom: 70px; left: 10px; color: white; background-color: rgba(0, 0, 0, 0.6); padding: 5px; border-radius: 10px;">
+        Debugging messages will appear here.
+    </div>
+    
+    <button id="close-camera"><i data-lucide="chevron-left"></i></button>
+   
+    <input type="range" id="vertical-slider" min="-250" max="250" step="5" value="220">
+    
+  </div>
+  <script>
+    lucide.createIcons();
+ 
+  </script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
