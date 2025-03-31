@@ -553,9 +553,8 @@ async function captureProcess(event) {
 
     let contoursCollection = null;
 
-    async function startHomoProcess(event) {
+    async function startHomoProcess() {
       
-      event.preventDefault();
       updateDebugLabel("Pattern Building Started!");
 
       contoursCollection = [];
@@ -667,10 +666,10 @@ slider.addEventListener("touchend", (e) => {
 
 // On start (mousedown/touchstart), start processing ORB Homography stitching.
 homoBtn.addEventListener("mousedown", () => {
-  startHomoProcess(e);
+  startHomoProcess();
 });
 homoBtn.addEventListener("touchstart", () => {
-  startHomoProcess(e);
+  startHomoProcess();
 });
 
 
