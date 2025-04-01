@@ -658,11 +658,15 @@ function warpStitchImages(storedFrames) {
     cv.warpPerspective(nextFrame, warpedFrame, H, warpSize);
 
     // Create a new panorama canvas.
-    // For simplicity, we horizontally concatenate panorama with a black image placeholder.
     let blackMat = new cv.Mat.zeros(panorama.rows, nextFrame.cols, panorama.type());
-    let newPanorama = new cv.Mat();
-    cv.hconcat([panorama, blackMat], newPanorama);
-    blackMat.delete();
+let newPanorama = new cv.Mat();
+let matVec = new cv.MatVector();
+matVec.push_back(panorama);
+matVec.push_back(blackMat);
+cv.hconcat(matVec, newPanorama);
+matVec.delete();
+blackMat.delete();
+
 
     // Blend the warped frame with the current panorama.
     // (This is a very basic blend—real applications might use multi-band blending.)
