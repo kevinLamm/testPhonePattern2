@@ -488,9 +488,13 @@ function processFrame() {
 
     frameCount++;
     
-    if (homo && homoProcessing && frameCount % 3 === 0){
-      homoProcess(src);
-    }
+    //if (homo && homoProcessing && frameCount % 3 === 0){
+   //  homoProcess(src);
+   // }
+
+   if (homo && homoProcessing && frameCount % 3 === 0) {
+    fixedBaseStitch(src);
+  }
 
     src.delete();
     requestAnimationFrame(processFrame);
@@ -552,6 +556,97 @@ async function captureProcess(event) {
 
 
     // ----------------------- Homography Stitching ----------------------
+
+    // Global variables for fixed‑base stitching:
+let baseImage = null;              // The first frame as reference.
+let baseKeypoints = null;
+let baseDescriptors = null;
+let cumulativeHomography = null;   // Cumulative transformation from current frame to base frame.
+let fixedPanorama = null;          // The full accumulated panorama.
+
+
+    function fixedBaseStitch(src) {
+      // Convert src to grayscale and detect ORB features.
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      let keypoints = new cv.KeyPointVector();
+      let descriptors = new cv.Mat();
+      orb.detectAndCompute(gray, new cv.Mat(), keypoints, descriptors);
+      
+      // If this is the first frame, set it as the base.
+      if (baseImage === null) {
+        baseImage = src.clone();
+        fixedPanorama = src.clone();
+        baseKeypoints = keypoints; // save the first frame's keypoints
+        baseDescriptors = descriptors.clone();
+        
+        // Initialize cumulativeHomography if it's not already set.
+        if (!cumulativeHomography) {
+          cumulativeHomography = cv.Mat.eye(3, 3, cv.CV_64F);
+        }
+        
+        gray.delete();
+        return;
+      }
+      
+      // Match features between the base frame and current frame.
+      let matches = new cv.DMatchVector();
+      bfMatcher.match(baseDescriptors, descriptors, matches);
+      
+      // Convert matches to an array and sort them.
+      let goodMatches = [];
+      for (let i = 0; i < matches.size(); i++) {
+        goodMatches.push(matches.get(i));
+      }
+      goodMatches.sort((a, b) => a.distance - b.distance);
+      
+      const numGoodMatches = Math.min(50, goodMatches.length);
+      if (numGoodMatches < 4) {
+        console.log("Not enough matches for homography.");
+        gray.delete();
+        descriptors.delete();
+        return;
+      }
+      
+      // Prepare points for homography using the base features and current frame features.
+      let basePoints = [];
+      let currentPoints = [];
+      for (let i = 0; i < numGoodMatches; i++) {
+        let m = goodMatches[i];
+        let kpBase = baseKeypoints.get(m.queryIdx);
+        let kpCurrent = keypoints.get(m.trainIdx);
+        basePoints.push(kpBase.pt.x, kpBase.pt.y);
+        currentPoints.push(kpCurrent.pt.x, kpCurrent.pt.y);
+      }
+      let baseMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, basePoints);
+      let currentMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, currentPoints);
+      
+      let mask = new cv.Mat();
+      let H = cv.findHomography(currentMat, baseMat, cv.RANSAC, 5.0, mask);
+      if (H.empty()) {
+        console.log("Homography computation failed.");
+        gray.delete(); descriptors.delete();
+        baseMat.delete(); currentMat.delete(); mask.delete();
+        return;
+      }
+      
+      // Update the cumulative homography:
+      // cumulativeHomography = cumulativeHomography * H
+      cumulativeHomography = cv.matMul(cumulativeHomography, H);
+      
+      // --- Composite Update ---
+      // Here you would compute the new composite size by warping the corners of src
+      // using cumulativeHomography, then blend the new warped frame into fixedPanorama.
+      // For brevity, assume a helper function updateComposite exists:
+      fixedPanorama = updateComposite(fixedPanorama, src, cumulativeHomography);
+      
+      // Cleanup temporary Mats.
+      gray.delete(); descriptors.delete();
+      baseMat.delete(); currentMat.delete(); mask.delete(); H.delete();
+      
+      // Optionally, update debugging logs here.
+    }
+    
 
     // Global variables to hold the reference panorama and its features.
 let panorama = null;
@@ -694,16 +789,14 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
     async function endHomoProcess(event) {
       event.preventDefault();
       
-      // Stop further processing so processFrame doesn't overwrite the canvas.
       processing = false;
       homoProcessing = false;
       
-      // Stop the video.
       if (video) {
         video.pause();
       }
       
-      if (!panorama) {
+      if (!fixedPanorama) {
         console.log("No panorama available for further processing.");
         return;
       }
@@ -723,7 +816,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Resize the panorama to have the canvas width while preserving aspect ratio.
       let resizedPanorama = new cv.Mat();
       let dsize = new cv.Size(newWidth, newHeight);
-      cv.resize(panorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
+      cv.resize(fixedPanorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
       
       // Create a new Mat with the same size as the canvas filled with black (for letterboxing).
       let letterboxMat = new cv.Mat.zeros(canvas.height, canvas.width, resizedPanorama.type());
@@ -745,10 +838,17 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Clean up Mats.
       letterboxMat.delete();
       resizedPanorama.delete();
-      panorama.delete();
-      panorama = null;
-    }
-    
+       // Clean up fixedPanorama and reset fixed-base globals if needed.
+  fixedPanorama.delete();
+  fixedPanorama = null;
+
+baseImage = null;              // The first frame as reference.
+baseKeypoints = null;
+baseDescriptors = null;
+cumulativeHomography = null;
+  
+  // Optionally, reset baseImage, baseKeypoints, baseDescriptors, cumulativeHomography.
+}
     
     
     
