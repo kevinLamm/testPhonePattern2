@@ -3,11 +3,7 @@ import jsaruco from "https://cdn.skypack.dev/js-aruco@0.1.0";
     // Extract AR and POS (choose POS1 or POS2 based on your needs)
     const AR = jsaruco.AR;
     const POS = jsaruco.POS1;  // or jsaruco.POS2
-    
-    
-    console.log("AR:", AR);
-   
-    console.log("POS:", POS);
+
 
 let video = document.createElement("video"); // Hidden video element
 // Hide the video element (it will still capture frames)
@@ -39,7 +35,6 @@ let project = {
   };
 
 let currentStream = null;
-let useBackCamera = true; // Default to back camera
 let processing = true; // Enable processing
 let homo = false;
 
@@ -493,7 +488,20 @@ function processFrame() {
    // }
 
    if (homo && homoProcessing && frameCount % 3 === 0) {
-    fixedBaseStitch(src);
+    // If this is the first frame, initialize compositePanorama and prevFrame.
+  if (!prevFrame) {
+    compositePanorama = src.clone();
+    prevFrame = src.clone();
+  } else {
+    // Compute the translation offset from the previous frame.
+    let offset = getTranslationOffset(prevFrame, src);
+    // Update the composite panorama.
+    compositePanorama = updateCompositeTranslation(compositePanorama, src, offset);
+    
+    // Update prevFrame with the current frame.
+    prevFrame.delete();
+    prevFrame = src.clone();
+  }
   }
 
     src.delete();
@@ -557,204 +565,115 @@ async function captureProcess(event) {
 
     // ----------------------- Homography Stitching ----------------------
 
-    // Global variables for fixed‑base stitching:
-let baseImage = null;              // The first frame as reference.
-let baseKeypoints = null;
-let baseDescriptors = null;
-let cumulativeHomography = null;   // Cumulative transformation from current frame to base frame.
-let fixedPanorama = null;          // The full accumulated panorama.
+    let compositePanorama = null;  // The composite panorama (a cv.Mat)
+let cumulativeOffset = { x: 0, y: 0 };  // Accumulated translation offset (in pixels)
+let prevFrame = null;  // The previous frame (cv.Mat) for computing the offset
 
 
-    function fixedBaseStitch(src) {
-      // Convert src to grayscale and detect ORB features.
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      let keypoints = new cv.KeyPointVector();
-      let descriptors = new cv.Mat();
-      orb.detectAndCompute(gray, new cv.Mat(), keypoints, descriptors);
+    function getTranslationOffset(prevMat, currMat) {
+      // Convert to grayscale.
+      let grayPrev = new cv.Mat();
+      let grayCurr = new cv.Mat();
+      cv.cvtColor(prevMat, grayPrev, cv.COLOR_RGBA2GRAY);
+      cv.cvtColor(currMat, grayCurr, cv.COLOR_RGBA2GRAY);
       
-      // If this is the first frame, set it as the base.
-      if (baseImage === null) {
-        baseImage = src.clone();
-        fixedPanorama = src.clone();
-        baseKeypoints = keypoints; // save the first frame's keypoints
-        baseDescriptors = descriptors.clone();
-        
-        // Initialize cumulativeHomography if it's not already set.
-        //if (!cumulativeHomography) {
-         // cumulativeHomography = cv.Mat.eye(3, 3, cv.CV_64F);
-       // }
-        
-        gray.delete();
-        return;
-      }
+      // Detect ORB features and compute descriptors.
+      let keypointsPrev = new cv.KeyPointVector();
+      let keypointsCurr = new cv.KeyPointVector();
+      let descriptorsPrev = new cv.Mat();
+      let descriptorsCurr = new cv.Mat();
       
-      // Match features between the base frame and current frame.
+      // Use ORB detector (assuming orb is globally created)
+      orb.detectAndCompute(grayPrev, new cv.Mat(), keypointsPrev, descriptorsPrev);
+      orb.detectAndCompute(grayCurr, new cv.Mat(), keypointsCurr, descriptorsCurr);
+      
+      // Match descriptors.
       let matches = new cv.DMatchVector();
-      bfMatcher.match(baseDescriptors, descriptors, matches);
+      bfMatcher.match(descriptorsPrev, descriptorsCurr, matches);
       
-      // Convert matches to an array and sort them.
-      let goodMatches = [];
+      // Gather translation offsets from good matches.
+      let offsets = [];
       for (let i = 0; i < matches.size(); i++) {
-        goodMatches.push(matches.get(i));
-      }
-      goodMatches.sort((a, b) => a.distance - b.distance);
-      
-      const numGoodMatches = Math.min(50, goodMatches.length);
-      if (numGoodMatches < 4) {
-        console.log("Not enough matches for homography.");
-        gray.delete();
-        descriptors.delete();
-        return;
+        let m = matches.get(i);
+        let kpPrev = keypointsPrev.get(m.queryIdx);
+        let kpCurr = keypointsCurr.get(m.trainIdx);
+        offsets.push({ x: kpCurr.pt.x - kpPrev.pt.x, y: kpCurr.pt.y - kpPrev.pt.y });
       }
       
-      // Prepare points for homography using the base features and current frame features.
-      let basePoints = [];
-      let currentPoints = [];
-      for (let i = 0; i < numGoodMatches; i++) {
-        let m = goodMatches[i];
-        let kpBase = baseKeypoints.get(m.queryIdx);
-        let kpCurrent = keypoints.get(m.trainIdx);
-        basePoints.push(kpBase.pt.x, kpBase.pt.y);
-        currentPoints.push(kpCurrent.pt.x, kpCurrent.pt.y);
-      }
-      let baseMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, basePoints);
-      let currentMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, currentPoints);
+      // Compute median offset.
+      offsets.sort((a, b) => a.x - b.x);
+      let medianX = offsets[Math.floor(offsets.length / 2)].x;
+      offsets.sort((a, b) => a.y - b.y);
+      let medianY = offsets[Math.floor(offsets.length / 2)].y;
       
-      let mask = new cv.Mat();
-      let H = cv.findHomography(currentMat, baseMat, cv.RANSAC, 5.0, mask);
-      if (H.empty()) {
-        console.log("Homography computation failed.");
-        gray.delete(); descriptors.delete();
-        baseMat.delete(); currentMat.delete(); mask.delete();
-        return;
-      }
+      // Cleanup.
+      grayPrev.delete();
+      grayCurr.delete();
+      keypointsPrev.delete();
+      keypointsCurr.delete();
+      descriptorsPrev.delete();
+      descriptorsCurr.delete();
+      matches.delete();
       
-      // Update the cumulative homography:
-     // let newCumulative = new cv.Mat();
-//cv.gemm(cumulativeHomography, H, 1, new cv.Mat(), 0, newCumulative, 0);
-//cumulativeHomography.delete();
-//cumulativeHomography = newCumulative;
-
-      
-      // --- Composite Update ---
-      // Here you would compute the new composite size by warping the corners of src
-      // using cumulativeHomography, then blend the new warped frame into fixedPanorama.
-      // For brevity, assume a helper function updateComposite exists:
-      // Suppose H is computed from matching the new frame to the base frame.
-fixedPanorama = updateComposite(fixedPanorama, src, H);
-
-      
-      // Cleanup temporary Mats.
-      gray.delete(); descriptors.delete();
-      baseMat.delete(); currentMat.delete(); mask.delete(); H.delete();
-      
-      // Optionally, update debugging logs here.
+      return { x: medianX, y: medianY };
     }
     
 
-    // Global variables to hold the reference panorama and its features.
-let panorama = null;
-let refGray = null;
-let refKeypoints = null;
-let refDescriptors = null;
-let panoramaCount = 0;
-
-// Create ORB detector and BFMatcher (using Hamming distance for ORB).
-let orb = new cv.ORB(); // Alternatively, cv.ORB.create() depending on your OpenCV.js version.
-let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
-
-/**
- * Process a new frame (src) and stitch it into the panorama.
- * @param {cv.Mat} src - The current frame read from processingCanvas.
- */
-    let contoursCollection = null;
-
-    async function startHomoProcess() {
+    function updateCompositeTranslation(oldComposite, newFrame, offset) {
+      // Update the cumulative offset.
+      cumulativeOffset.x += offset.x;
+      cumulativeOffset.y += offset.y;
       
-      updateDebugLabel("Pattern Building Started!");
-
-      contoursCollection = [];
-      homoProcessing = true;
+      // Determine the union (bounding box) of the old composite and the new frame shifted by cumulativeOffset.
+      let xMin = Math.min(0, cumulativeOffset.x);
+      let yMin = Math.min(0, cumulativeOffset.y);
+      let xMax = Math.max(oldComposite.cols, cumulativeOffset.x + newFrame.cols);
+      let yMax = Math.max(oldComposite.rows, cumulativeOffset.y + newFrame.rows);
       
+      let compositeWidth = Math.round(xMax - xMin);
+      let compositeHeight = Math.round(yMax - yMin);
       
-    }
-
-    function updateComposite(oldComposite, src, H) {
-      // Compute the four corners of src.
-      let corners = [
-        new cv.Point(0, 0),
-        new cv.Point(src.cols, 0),
-        new cv.Point(src.cols, src.rows),
-        new cv.Point(0, src.rows)
-      ];
+      // Create a new composite image filled with black.
+      let newComposite = new cv.Mat.zeros(compositeHeight, compositeWidth, oldComposite.type());
       
-      // Warp the corners using homography H.
-      let warpedCorners = [];
-      let Hdata = H.data64F;
-      for (let i = 0; i < corners.length; i++) {
-        let x = corners[i].x;
-        let y = corners[i].y;
-        let denom = Hdata[6] * x + Hdata[7] * y + Hdata[8];
-        let newX = (Hdata[0] * x + Hdata[1] * y + Hdata[2]) / denom;
-        let newY = (Hdata[3] * x + Hdata[4] * y + Hdata[5]) / denom;
-        warpedCorners.push(new cv.Point(newX, newY));
-      }
+      // Compute the translation needed for oldComposite.
+      let offsetOldX = -xMin;
+      let offsetOldY = -yMin;
       
-      // Determine the union bounding box of the old composite and the warped new frame.
-      // We assume that oldComposite spans from (0,0) to (oldComposite.cols, oldComposite.rows).
-      let minX = Math.min(0, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
-      let minY = Math.min(0, warpedCorners[0].y, warpedCorners[1].y, warpedCorners[2].y, warpedCorners[3].y);
-      let maxX = Math.max(oldComposite.cols, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
-      let maxY = Math.max(oldComposite.rows, warpedCorners[0].y, warpedCorners[1].y, warpedCorners[2].y, warpedCorners[3].y);
+      // Copy oldComposite into newComposite.
+      let roiRectOld = new cv.Rect(offsetOldX, offsetOldY, oldComposite.cols, oldComposite.rows);
+      let roiOld = newComposite.roi(roiRectOld);
+      oldComposite.copyTo(roiOld);
+      roiOld.delete();
       
-      let newWidth = Math.round(maxX - minX);
-      let newHeight = Math.round(maxY - minY);
+      // Create the translation matrix for the new frame.
+      // The new frame should be placed at cumulativeOffset relative to the base,
+      // but we need to adjust by the offset we applied to oldComposite.
+      let tx = cumulativeOffset.x + offsetOldX;
+      let ty = cumulativeOffset.y + offsetOldY;
+      let M = cv.matFromArray(2, 3, cv.CV_64F, [1, 0, tx, 0, 1, ty]);
       
-      // Create a new composite image (filled with black).
-      let composite = new cv.Mat.zeros(newHeight, newWidth, oldComposite.type());
-      
-      // Compute the translation offset to bring oldComposite into the new coordinate system.
-      let offsetX = -minX;
-      let offsetY = -minY;
-      
-      // Copy oldComposite into the new composite at the offset.
-      let roiRect = new cv.Rect(Math.round(offsetX), Math.round(offsetY), oldComposite.cols, oldComposite.rows);
-      let roi = composite.roi(roiRect);
-      oldComposite.copyTo(roi);
-      roi.delete();
-      
-      // Create a translation matrix T to shift coordinates.
-      let T = cv.Mat.eye(3, 3, cv.CV_64F);
-      T.data64F[2] = offsetX;
-      T.data64F[5] = offsetY;
-      
-      // Adjust H so that it maps src into the new composite coordinate system:
-      // adjustedH = T * H.
-      let adjustedH = new cv.Mat();
-      cv.gemm(T, H, 1, new cv.Mat(), 0, adjustedH, 0);
-      
-      // Warp the new frame (src) using the adjusted homography.
+      // Warp the new frame using the translation.
       let warpedNew = new cv.Mat();
-      let dsize = new cv.Size(newWidth, newHeight);
-      cv.warpPerspective(src, warpedNew, adjustedH, dsize, cv.INTER_LINEAR, cv.BORDER_TRANSPARENT, new cv.Scalar());
+      cv.warpAffine(newFrame, warpedNew, M, new cv.Size(compositeWidth, compositeHeight), cv.INTER_LINEAR, cv.BORDER_TRANSPARENT, new cv.Scalar());
       
-      // Create a mask from the warped image (non-black areas).
+      // Create a mask of non-black pixels from warpedNew.
       let mask = new cv.Mat();
       cv.cvtColor(warpedNew, mask, cv.COLOR_RGBA2GRAY);
       cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
       
-      // Overlay warpedNew into the composite using the mask.
-      warpedNew.copyTo(composite, mask);
+      // Overlay the warped new frame onto the composite.
+      warpedNew.copyTo(newComposite, mask);
       
-      // Clean up temporary Mats.
-      T.delete();
-      adjustedH.delete();
+      // Cleanup.
+      M.delete();
       warpedNew.delete();
       mask.delete();
+      oldComposite.delete();
       
-      return composite;
+      return newComposite;
     }
+    
     
     
 
@@ -770,27 +689,22 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         video.pause();
       }
       
-      if (!fixedPanorama || fixedPanorama.empty()) {
-        console.log("No fixed-base panorama available for processing.");
-        return;
-      }
       
       // Set the canvas to fill the window.
-      //let canvas = document.getElementById("canvas");
+   
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      //canvas.style.width = window.innerWidth + "px";
-      //canvas.style.height = window.innerHeight + "px";
+     
       
       // Calculate the scale factor to fit the panorama width to the canvas width.
-      let scaleFactor = canvas.width / fixedPanorama.cols;
+      let scaleFactor = canvas.width / compositePanorama.cols;
       let newWidth = canvas.width; // Exactly fill the canvas width.
       let newHeight = Math.round(fixedPanorama.rows * scaleFactor);
       
       // Resize the panorama to have the canvas width while preserving aspect ratio.
       let resizedPanorama = new cv.Mat();
       let dsize = new cv.Size(newWidth, newHeight);
-      cv.resize(fixedPanorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
+      cv.resize(compositePanorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
       
       // Create a new Mat with the same size as the canvas filled with black (for letterboxing).
       let letterboxMat = new cv.Mat.zeros(canvas.height, canvas.width, resizedPanorama.type());
@@ -812,16 +726,9 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Clean up Mats.
       letterboxMat.delete();
       resizedPanorama.delete();
-       // Clean up fixedPanorama and reset fixed-base globals if needed.
-  fixedPanorama.delete();
-  fixedPanorama = null;
-
-baseImage = null;              // The first frame as reference.
-baseKeypoints = null;
-baseDescriptors = null;
-cumulativeHomography = null;
+      
+   
   
-  // Optionally, reset baseImage, baseKeypoints, baseDescriptors, cumulativeHomography.
 }
     
     
