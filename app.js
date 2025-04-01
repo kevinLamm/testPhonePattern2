@@ -583,7 +583,7 @@ function flattenPoints(points) {
 function blendImages(img1, img2) {
   // Assume both images are the same size for this simple example.
   let blended = new cv.Mat();
-  cv.addWeighted(img1, 0.5, img2, 0.5, 0, blended);
+  cv.addWeighted(img1, 0, img2, 1, 0, blended);
   return blended;
 }
 
@@ -659,13 +659,13 @@ function warpStitchImages(storedFrames) {
 
     // Create a new panorama canvas.
     let blackMat = new cv.Mat.zeros(panorama.rows, nextFrame.cols, panorama.type());
-let newPanorama = new cv.Mat();
-let matVec = new cv.MatVector();
-matVec.push_back(panorama);
-matVec.push_back(blackMat);
-cv.hconcat(matVec, newPanorama);
-matVec.delete();
-blackMat.delete();
+    let newPanorama = new cv.Mat();
+    let matVec = new cv.MatVector();
+    matVec.push_back(panorama);
+    matVec.push_back(blackMat);
+    cv.hconcat(matVec, newPanorama);
+    matVec.delete();
+    blackMat.delete();
 
 
     // Blend the warped frame with the current panorama.
