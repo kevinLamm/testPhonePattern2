@@ -730,7 +730,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Display the stretched panorama on the canvas.
       cv.imshow("canvas", scaledPanorama);
       
-      updateDebugLabel("panorama processing complete. Canvas: " + canvas.width + " x " + canvas.height);
+      updateDebugLabel("panorama processing complete. Canvas: " + panorama.cols + " x " + panorama.rows);
       
       // Clean up.
       scaledPanorama.delete();
