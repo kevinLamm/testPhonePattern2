@@ -23,7 +23,7 @@ let threshInvert = false;
 // Global variables for storing data from each frame
 let lastLargestContour = null;
 let lastMarkerHomography = null; // Homography computed from the marker corners
-let homoImage = null;
+
 let homoProcessing = false;
 
 let homoBtn = document.getElementById("homo-btn");  // Visible canvas for display
@@ -697,7 +697,7 @@ function warpStitchImages(storedFrames) {
       
       updateDebugLabel("Pattern Building Started!");
 
-      contoursCollection = [];
+     
       homoProcessing = true;
       
       
