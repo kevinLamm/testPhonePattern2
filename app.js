@@ -703,7 +703,6 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         video.pause();
       }
       
-      // Check that we have a valid panorama to process.
       if (!panorama) {
         console.log("No panorama available for further processing.");
         return;
@@ -716,7 +715,11 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         return;
       }
       
-      // Optional: clear the canvas 2D context.
+      // Resize the canvas to fill the window.
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Optionally clear the canvas.
       let ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -724,10 +727,10 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       let scaledPanorama = new cv.Mat();
       let dsize = new cv.Size(canvas.width, canvas.height);
       
-      // Resize the panorama to fit the canvas dimensions.
-      cv.resize(panorama, scaledPanorama, dsize, 0, 0, cv.INTER_AREA);
+      // Resize (stretch) the panorama to fit the canvas.
+      cv.resize(panorama, scaledPanorama, dsize, 0, 0, cv.INTER_LINEAR);
       
-      // Draw the scaled panorama onto the canvas.
+      // Display the stretched panorama on the canvas.
       cv.imshow("canvas", scaledPanorama);
       
       updateDebugLabel("panorama processing complete. W = " + canvas.width + " H = " + canvas.height);
@@ -737,6 +740,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       panorama.delete();
       panorama = null;
     }
+    
     
     
     
