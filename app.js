@@ -703,58 +703,41 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         video.pause();
       }
       
+      // Check that we have a valid panorama to process.
       if (!panorama) {
         console.log("No panorama available for further processing.");
         return;
       }
       
-      // Convert the panorama to grayscale.
-      let processedPanorama = new cv.Mat();
-      cv.cvtColor(panorama, processedPanorama, cv.COLOR_RGBA2GRAY);
-      
-      // Apply Gaussian blur.
-      let blurredPanorama = new cv.Mat();
-      let ksize = new cv.Size(5, 5);
-      cv.GaussianBlur(processedPanorama, blurredPanorama, ksize, 0, 0, cv.BORDER_DEFAULT);
-      
-      // Run Canny edge detection.
-      let edges = new cv.Mat();
-      cv.Canny(blurredPanorama, edges, 50, 150);
-      
-      // Convert the edge Mat to RGBA.
-      let rgba = new cv.Mat();
-      cv.cvtColor(edges, rgba, cv.COLOR_GRAY2RGBA);
-      
-      // Get the canvas and its 2D context.
+      // Get the canvas element.
       let canvas = document.getElementById("canvas");
       if (!canvas) {
         console.error("Canvas element with id 'canvas' not found.");
         return;
       }
+      
+      // Optional: clear the canvas 2D context.
       let ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Adjust the canvas size to match the processed image.
-      canvas.width = rgba.cols;
-      canvas.height = rgba.rows;
+      // Create a new Mat to hold the resized panorama.
+      let scaledPanorama = new cv.Mat();
+      let dsize = new cv.Size(canvas.width, canvas.height);
       
-      // Create an ImageData object from the rgba data.
-      let imgData = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
+      // Resize the panorama to fit the canvas dimensions.
+      cv.resize(panorama, scaledPanorama, dsize, 0, 0, cv.INTER_AREA);
       
-      // Draw the image data onto the canvas.
-      ctx.putImageData(imgData, 0, 0);
+      // Draw the scaled panorama onto the canvas.
+      cv.imshow("canvas", scaledPanorama);
       
-      updateDebugLabel("panorama processing complete. W = " + canvas.width, " H = " + canvas.height);
+      updateDebugLabel("panorama processing complete. W = " + canvas.width + " H = " + canvas.height);
       
-      // Clean up temporary Mats.
-      processedPanorama.delete();
-      blurredPanorama.delete();
-      edges.delete();
-      rgba.delete();
-      
-      // Free the original panorama if no longer needed.
+      // Clean up.
+      scaledPanorama.delete();
       panorama.delete();
       panorama = null;
     }
+    
     
     
      
