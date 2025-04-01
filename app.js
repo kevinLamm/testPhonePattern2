@@ -708,38 +708,36 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         return;
       }
       
-      // Get the canvas element.
-      let canvas = document.getElementById("canvas");
-      if (!canvas) {
-        console.error("Canvas element with id 'canvas' not found.");
-        return;
-      }
+      // Log original panorama dimensions.
+      console.log("Original panorama dimensions: " + panorama.cols + " x " + panorama.rows);
       
       // Resize the canvas to fill the window.
+      let canvas = document.getElementById("canvas");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
       
-      // Optionally clear the canvas.
-      let ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Create a new Mat to hold the resized panorama.
-      let scaledPanorama = new cv.Mat();
+      // Create a Mat for the scaled panorama.
       let dsize = new cv.Size(canvas.width, canvas.height);
+      let scaledPanorama = new cv.Mat();
       
-      // Resize (stretch) the panorama to fit the canvas.
+      // Resize (stretch) the panorama to exactly match the canvas dimensions.
       cv.resize(panorama, scaledPanorama, dsize, 0, 0, cv.INTER_LINEAR);
+      
+      console.log("Scaled panorama dimensions: " + scaledPanorama.cols + " x " + scaledPanorama.rows);
       
       // Display the stretched panorama on the canvas.
       cv.imshow("canvas", scaledPanorama);
       
-      updateDebugLabel("panorama processing complete. W = " + canvas.width + " H = " + canvas.height);
+      updateDebugLabel("panorama processing complete. Canvas: " + canvas.width + " x " + canvas.height);
       
       // Clean up.
       scaledPanorama.delete();
       panorama.delete();
       panorama = null;
     }
+    
     
     
     
