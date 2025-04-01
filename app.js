@@ -882,16 +882,16 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       }
       
       // Set the canvas to fill the window.
-      let canvas = document.getElementById("canvas");
+      //let canvas = document.getElementById("canvas");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      canvas.style.width = window.innerWidth + "px";
-      canvas.style.height = window.innerHeight + "px";
+      //canvas.style.width = window.innerWidth + "px";
+      //canvas.style.height = window.innerHeight + "px";
       
       // Calculate the scale factor to fit the panorama width to the canvas width.
-      let scaleFactor = canvas.width / panorama.cols;
+      let scaleFactor = canvas.width / fixedPanorama.cols;
       let newWidth = canvas.width; // Exactly fill the canvas width.
-      let newHeight = Math.round(panorama.rows * scaleFactor);
+      let newHeight = Math.round(fixedPanorama.rows * scaleFactor);
       
       // Resize the panorama to have the canvas width while preserving aspect ratio.
       let resizedPanorama = new cv.Mat();
