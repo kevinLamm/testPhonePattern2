@@ -743,7 +743,7 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Draw the image data onto the canvas.
       ctx.putImageData(imgData, 0, 0);
       
-      console.log("panorama processing complete.");
+      updateDebugLabel("panorama processing complete. W = " + canvas.width, " H = " + canvas.height);
       
       // Clean up temporary Mats.
       processedPanorama.delete();
