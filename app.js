@@ -708,35 +708,47 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         return;
       }
       
-      // Log original panorama dimensions.
-      console.log("Original panorama dimensions: " + panorama.cols + " x " + panorama.rows);
-      
-      // Resize the canvas to fill the window.
+      // Set the canvas to fill the window.
       let canvas = document.getElementById("canvas");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       canvas.style.width = window.innerWidth + "px";
       canvas.style.height = window.innerHeight + "px";
       
-      // Create a Mat for the scaled panorama.
-      let dsize = new cv.Size(canvas.width, canvas.height);
-      let scaledPanorama = new cv.Mat();
+      // Calculate the scale factor to fit the panorama width to the canvas width.
+      let scaleFactor = canvas.width / panorama.cols;
+      let newWidth = canvas.width; // Exactly fill the canvas width.
+      let newHeight = Math.round(panorama.rows * scaleFactor);
       
-      // Resize (stretch) the panorama to exactly match the canvas dimensions.
-      cv.resize(panorama, scaledPanorama, dsize, 0, 0, cv.INTER_LINEAR);
+      // Resize the panorama to have the canvas width while preserving aspect ratio.
+      let resizedPanorama = new cv.Mat();
+      let dsize = new cv.Size(newWidth, newHeight);
+      cv.resize(panorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
       
-      console.log("Scaled panorama dimensions: " + scaledPanorama.cols + " x " + scaledPanorama.rows);
+      // Create a new Mat with the same size as the canvas filled with black (for letterboxing).
+      let letterboxMat = new cv.Mat.zeros(canvas.height, canvas.width, resizedPanorama.type());
       
-      // Display the stretched panorama on the canvas.
-      cv.imshow("canvas", scaledPanorama);
+      // Compute vertical offset to center the resized panorama.
+      let yOffset = Math.floor((canvas.height - newHeight) / 2);
       
-      updateDebugLabel("panorama processing complete. Canvas: " + panorama.cols + " x " + panorama.rows);
+      // Define ROI in the letterboxMat where the resized panorama will be placed.
+      let roiRect = new cv.Rect(0, yOffset, newWidth, newHeight);
+      let roi = letterboxMat.roi(roiRect);
+      resizedPanorama.copyTo(roi);
+      roi.delete(); // Release ROI
       
-      // Clean up.
-      scaledPanorama.delete();
+      // Display the letterboxed panorama on the canvas.
+      cv.imshow("canvas", letterboxMat);
+      
+      updateDebugLabel("panorama processing complete. Canvas: " + canvas.width + " x " + canvas.height);
+      
+      // Clean up Mats.
+      letterboxMat.delete();
+      resizedPanorama.delete();
       panorama.delete();
       panorama = null;
     }
+    
     
     
     
