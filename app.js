@@ -488,7 +488,7 @@ function processFrame() {
 
     frameCount++;
     
-    if (homo && homoProcessing && frameCount % 6 === 0){
+    if (homo && homoProcessing && frameCount % 3 === 0){
       homoProcess(src);
     }
 
