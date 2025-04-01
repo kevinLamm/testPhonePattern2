@@ -583,7 +583,7 @@ function flattenPoints(points) {
 function blendImages(img1, img2) {
   // Assume both images are the same size for this simple example.
   let blended = new cv.Mat();
-  cv.addWeighted(img1, 0, img2, 1, 0, blended);
+  cv.addWeighted(img1, 0.5, img2, 0.5, 0, blended);
   return blended;
 }
 
@@ -726,21 +726,51 @@ function warpStitchImages(storedFrames) {
       // Note: warpStitchImages returns a cv.Mat.
       let fixedPanorama = warpStitchImages(storedFrames);
     
+      // --- Crop out transparency (or black areas) ---
+      // Convert to grayscale
+      let gray = new cv.Mat();
+      cv.cvtColor(fixedPanorama, gray, cv.COLOR_RGBA2GRAY, 0);
+      
+      // Threshold to create a binary image; non-black pixels become white (255)
+      let thresh = new cv.Mat();
+      cv.threshold(gray, thresh, 1, 255, cv.THRESH_BINARY);
+      
+      // Find all non-zero (non-black) points
+      let nonZero = new cv.Mat();
+      cv.findNonZero(thresh, nonZero);
+      
+      // Compute the bounding rectangle of the non-zero points
+      let boundingRect = cv.boundingRect(nonZero);
+      
+      // Crop the panorama using the bounding rectangle.
+      // Clone so that croppedPanorama owns its own data.
+      let croppedPanorama = fixedPanorama.roi(boundingRect).clone();
+      
+      // Cleanup temporary Mats for cropping
+      gray.delete();
+      thresh.delete();
+      nonZero.delete();
+      
+      // Optionally, delete fixedPanorama now that we've cloned the cropped area
+      fixedPanorama.delete();
+      
+      // --- Now continue with scaling and letterboxing using croppedPanorama ---
+      
       // Set the canvas to fill the window.
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       
-      // Calculate the scale factor to fit the panorama width to the canvas width.
-      let scaleFactor = canvas.width / fixedPanorama.cols;
+      // Calculate the scale factor to fit the cropped panorama width to the canvas width.
+      let scaleFactor = canvas.width / croppedPanorama.cols;
       let newWidth = canvas.width; // Exactly fill the canvas width.
-      let newHeight = Math.round(fixedPanorama.rows * scaleFactor);
+      let newHeight = Math.round(croppedPanorama.rows * scaleFactor);
       
-      // Resize the panorama to have the canvas width while preserving aspect ratio.
+      // Resize the cropped panorama while preserving its aspect ratio.
       let resizedPanorama = new cv.Mat();
       let dsize = new cv.Size(newWidth, newHeight);
-      cv.resize(fixedPanorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
+      cv.resize(croppedPanorama, resizedPanorama, dsize, 0, 0, cv.INTER_LINEAR);
       
-      // Create a new Mat with the same size as the canvas filled with black (for letterboxing).
+      // Create a new Mat with the same size as the canvas, filled with black (for letterboxing).
       let letterboxMat = new cv.Mat.zeros(canvas.height, canvas.width, resizedPanorama.type());
       
       // Compute vertical offset to center the resized panorama.
@@ -750,7 +780,7 @@ function warpStitchImages(storedFrames) {
       let roiRect = new cv.Rect(0, yOffset, newWidth, newHeight);
       let roi = letterboxMat.roi(roiRect);
       resizedPanorama.copyTo(roi);
-      roi.delete(); // Release ROI
+      roi.delete(); // Release the ROI
       
       // Display the letterboxed panorama on the canvas.
       cv.imshow("canvas", letterboxMat);
@@ -760,11 +790,9 @@ function warpStitchImages(storedFrames) {
       // Clean up Mats.
       letterboxMat.delete();
       resizedPanorama.delete();
-      
-      // Clean up fixedPanorama and reset fixed-base globals if needed.
-      fixedPanorama.delete();
-      fixedPanorama = null;
+      croppedPanorama.delete();
     }
+    
     
     
     
