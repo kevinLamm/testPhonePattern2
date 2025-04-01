@@ -631,8 +631,11 @@ let fixedPanorama = null;          // The full accumulated panorama.
       }
       
       // Update the cumulative homography:
-      // cumulativeHomography = cumulativeHomography * H
-      cumulativeHomography = cv.matMul(cumulativeHomography, H);
+      let newCumulative = new cv.Mat();
+cv.gemm(cumulativeHomography, H, 1, new cv.Mat(), 0, newCumulative, 0);
+cumulativeHomography.delete();
+cumulativeHomography = newCumulative;
+
       
       // --- Composite Update ---
       // Here you would compute the new composite size by warping the corners of src
@@ -796,8 +799,8 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         video.pause();
       }
       
-      if (!fixedPanorama) {
-        console.log("No panorama available for further processing.");
+      if (!fixedPanorama || fixedPanorama.empty()) {
+        console.log("No fixed-base panorama available for processing.");
         return;
       }
       
