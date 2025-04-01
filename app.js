@@ -699,7 +699,7 @@ let prevFrame = null;  // The previous frame (cv.Mat) for computing the offset
       // Calculate the scale factor to fit the panorama width to the canvas width.
       let scaleFactor = canvas.width / compositePanorama.cols;
       let newWidth = canvas.width; // Exactly fill the canvas width.
-      let newHeight = Math.round(fixedPanorama.rows * scaleFactor);
+      let newHeight = Math.round(compositePanorama.rows * scaleFactor);
       
       // Resize the panorama to have the canvas width while preserving aspect ratio.
       let resizedPanorama = new cv.Mat();
@@ -726,7 +726,7 @@ let prevFrame = null;  // The previous frame (cv.Mat) for computing the offset
       // Clean up Mats.
       letterboxMat.delete();
       resizedPanorama.delete();
-      
+
    
   
 }
