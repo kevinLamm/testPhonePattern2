@@ -678,6 +678,83 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       
     }
 
+    function updateComposite(oldComposite, src, cumulativeHomography) {
+      // Compute the corners of the new frame (src).
+      let corners = [
+        new cv.Point(0, 0),
+        new cv.Point(src.cols, 0),
+        new cv.Point(src.cols, src.rows),
+        new cv.Point(0, src.rows)
+      ];
+      
+      // Warp the corners using cumulativeHomography.
+      let warpedCorners = [];
+      let Hdata = cumulativeHomography.data64F;
+      for (let i = 0; i < corners.length; i++) {
+        let x = corners[i].x;
+        let y = corners[i].y;
+        let denom = Hdata[6] * x + Hdata[7] * y + Hdata[8];
+        let newX = (Hdata[0] * x + Hdata[1] * y + Hdata[2]) / denom;
+        let newY = (Hdata[3] * x + Hdata[4] * y + Hdata[5]) / denom;
+        warpedCorners.push(new cv.Point(newX, newY));
+      }
+      
+      // Compute the bounding box (union) of the warped new frame and the old composite.
+      // Note: The old composite is assumed to occupy [0,0] to [oldComposite.cols, oldComposite.rows]
+      let minX = Math.min(0, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
+      let minY = Math.min(0, warpedCorners[0].y, warpedCorners[1].y, warpedCorners[2].y, warpedCorners[3].y);
+      let maxX = Math.max(oldComposite.cols, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
+      let maxY = Math.max(oldComposite.rows, warpedCorners[0].y, warpedCorners[1].y, warpedCorners[2].y, warpedCorners[3].y);
+      
+      let newWidth = Math.round(maxX - minX);
+      let newHeight = Math.round(maxY - minY);
+      
+      // Create a new composite image (filled with black).
+      let composite = new cv.Mat.zeros(newHeight, newWidth, oldComposite.type());
+      
+      // Compute the translation offset to shift oldComposite into the new coordinate system.
+      let offsetX = -minX;
+      let offsetY = -minY;
+      
+      // Copy oldComposite into composite at the proper offset.
+      let roiRect = new cv.Rect(Math.round(offsetX), Math.round(offsetY), oldComposite.cols, oldComposite.rows);
+      let roi = composite.roi(roiRect);
+      oldComposite.copyTo(roi);
+      roi.delete();
+      
+      // Create a translation matrix T.
+      let T = cv.Mat.eye(3, 3, cv.CV_64F);
+      T.data64F[2] = offsetX;
+      T.data64F[5] = offsetY;
+      
+      // Adjust the cumulative homography by the translation:
+      // adjustedH = T * cumulativeHomography
+      let adjustedH = new cv.Mat();
+      cv.gemm(T, cumulativeHomography, 1, new cv.Mat(), 0, adjustedH, 0);
+      
+      // Warp the new frame into the new composite coordinate system.
+      let warpedNew = new cv.Mat();
+      let dsize = new cv.Size(newWidth, newHeight);
+      cv.warpPerspective(src, warpedNew, adjustedH, dsize, cv.INTER_LINEAR, cv.BORDER_TRANSPARENT, new cv.Scalar());
+      
+      // Create a mask from warpedNew (non-black pixels).
+      let mask = new cv.Mat();
+      cv.cvtColor(warpedNew, mask, cv.COLOR_RGBA2GRAY);
+      cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
+      
+      // Overlay the warped new frame into the composite using the mask.
+      warpedNew.copyTo(composite, mask);
+      
+      // Cleanup temporary Mats.
+      T.delete();
+      adjustedH.delete();
+      warpedNew.delete();
+      mask.delete();
+      
+      return composite;
+    }
+    
+
     function homoProcess(src) {
      
 
