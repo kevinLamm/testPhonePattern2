@@ -581,9 +581,9 @@ let fixedPanorama = null;          // The full accumulated panorama.
         baseDescriptors = descriptors.clone();
         
         // Initialize cumulativeHomography if it's not already set.
-        if (!cumulativeHomography) {
-          cumulativeHomography = cv.Mat.eye(3, 3, cv.CV_64F);
-        }
+        //if (!cumulativeHomography) {
+         // cumulativeHomography = cv.Mat.eye(3, 3, cv.CV_64F);
+       // }
         
         gray.delete();
         return;
@@ -631,17 +631,19 @@ let fixedPanorama = null;          // The full accumulated panorama.
       }
       
       // Update the cumulative homography:
-      let newCumulative = new cv.Mat();
-cv.gemm(cumulativeHomography, H, 1, new cv.Mat(), 0, newCumulative, 0);
-cumulativeHomography.delete();
-cumulativeHomography = newCumulative;
+     // let newCumulative = new cv.Mat();
+//cv.gemm(cumulativeHomography, H, 1, new cv.Mat(), 0, newCumulative, 0);
+//cumulativeHomography.delete();
+//cumulativeHomography = newCumulative;
 
       
       // --- Composite Update ---
       // Here you would compute the new composite size by warping the corners of src
       // using cumulativeHomography, then blend the new warped frame into fixedPanorama.
       // For brevity, assume a helper function updateComposite exists:
-      fixedPanorama = updateComposite(fixedPanorama, src, cumulativeHomography);
+      // Suppose H is computed from matching the new frame to the base frame.
+fixedPanorama = updateComposite(fixedPanorama, src, H);
+
       
       // Cleanup temporary Mats.
       gray.delete(); descriptors.delete();
@@ -678,8 +680,8 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       
     }
 
-    function updateComposite(oldComposite, src, cumulativeHomography) {
-      // Compute the corners of the new frame (src).
+    function updateComposite(oldComposite, src, H) {
+      // Compute the four corners of src.
       let corners = [
         new cv.Point(0, 0),
         new cv.Point(src.cols, 0),
@@ -687,9 +689,9 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         new cv.Point(0, src.rows)
       ];
       
-      // Warp the corners using cumulativeHomography.
+      // Warp the corners using homography H.
       let warpedCorners = [];
-      let Hdata = cumulativeHomography.data64F;
+      let Hdata = H.data64F;
       for (let i = 0; i < corners.length; i++) {
         let x = corners[i].x;
         let y = corners[i].y;
@@ -699,8 +701,8 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
         warpedCorners.push(new cv.Point(newX, newY));
       }
       
-      // Compute the bounding box (union) of the warped new frame and the old composite.
-      // Note: The old composite is assumed to occupy [0,0] to [oldComposite.cols, oldComposite.rows]
+      // Determine the union bounding box of the old composite and the warped new frame.
+      // We assume that oldComposite spans from (0,0) to (oldComposite.cols, oldComposite.rows).
       let minX = Math.min(0, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
       let minY = Math.min(0, warpedCorners[0].y, warpedCorners[1].y, warpedCorners[2].y, warpedCorners[3].y);
       let maxX = Math.max(oldComposite.cols, warpedCorners[0].x, warpedCorners[1].x, warpedCorners[2].x, warpedCorners[3].x);
@@ -712,40 +714,40 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       // Create a new composite image (filled with black).
       let composite = new cv.Mat.zeros(newHeight, newWidth, oldComposite.type());
       
-      // Compute the translation offset to shift oldComposite into the new coordinate system.
+      // Compute the translation offset to bring oldComposite into the new coordinate system.
       let offsetX = -minX;
       let offsetY = -minY;
       
-      // Copy oldComposite into composite at the proper offset.
+      // Copy oldComposite into the new composite at the offset.
       let roiRect = new cv.Rect(Math.round(offsetX), Math.round(offsetY), oldComposite.cols, oldComposite.rows);
       let roi = composite.roi(roiRect);
       oldComposite.copyTo(roi);
       roi.delete();
       
-      // Create a translation matrix T.
+      // Create a translation matrix T to shift coordinates.
       let T = cv.Mat.eye(3, 3, cv.CV_64F);
       T.data64F[2] = offsetX;
       T.data64F[5] = offsetY;
       
-      // Adjust the cumulative homography by the translation:
-      // adjustedH = T * cumulativeHomography
+      // Adjust H so that it maps src into the new composite coordinate system:
+      // adjustedH = T * H.
       let adjustedH = new cv.Mat();
-      cv.gemm(T, cumulativeHomography, 1, new cv.Mat(), 0, adjustedH, 0);
+      cv.gemm(T, H, 1, new cv.Mat(), 0, adjustedH, 0);
       
-      // Warp the new frame into the new composite coordinate system.
+      // Warp the new frame (src) using the adjusted homography.
       let warpedNew = new cv.Mat();
       let dsize = new cv.Size(newWidth, newHeight);
       cv.warpPerspective(src, warpedNew, adjustedH, dsize, cv.INTER_LINEAR, cv.BORDER_TRANSPARENT, new cv.Scalar());
       
-      // Create a mask from warpedNew (non-black pixels).
+      // Create a mask from the warped image (non-black areas).
       let mask = new cv.Mat();
       cv.cvtColor(warpedNew, mask, cv.COLOR_RGBA2GRAY);
       cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
       
-      // Overlay the warped new frame into the composite using the mask.
+      // Overlay warpedNew into the composite using the mask.
       warpedNew.copyTo(composite, mask);
       
-      // Cleanup temporary Mats.
+      // Clean up temporary Mats.
       T.delete();
       adjustedH.delete();
       warpedNew.delete();
@@ -754,117 +756,9 @@ let bfMatcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
       return composite;
     }
     
-
-    function homoProcess(src) {
-     
-
-      // Convert current frame to grayscale.
-  let gray = new cv.Mat();
-  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-  // Detect keypoints and compute descriptors for the current frame.
-  let keypoints = new cv.KeyPointVector();
-  let descriptors = new cv.Mat();
-  orb.detectAndCompute(gray, new cv.Mat(), keypoints, descriptors);
-
-  // If this is the first frame, initialize the panorama and reference features.
-  if (panorama === null) {
-    panorama = src.clone();
-    refGray = gray.clone();
-    refKeypoints = keypoints; // Save keypoints (note: we pass the object reference).
-    refDescriptors = descriptors.clone();
     
-    // Cleanup the current grayscale image (but keep keypoints for future use).
-    gray.delete();
-    descriptors.delete();
-    return;
-  }
 
-  // Match features between the reference (panorama) and current frame.
-  let matches = new cv.DMatchVector();
-  bfMatcher.match(refDescriptors, descriptors, matches);
-
-  // Convert matches to an array for sorting by distance.
-  let goodMatches = [];
-  for (let i = 0; i < matches.size(); i++) {
-    goodMatches.push(matches.get(i));
-  }
-  goodMatches.sort((a, b) => a.distance - b.distance);
-
-  // Use a fixed number of the best matches (ensure we have enough for homography).
-  const numGoodMatches = Math.min(50, goodMatches.length);
-  if (numGoodMatches < 4) {
-    console.log("Not enough matches to compute homography.");
-    // Cleanup temporary objects.
-    gray.delete();
-    keypoints.delete();
-    descriptors.delete();
-    matches.delete();
-    return;
-  }
-
-  // Prepare point arrays for homography computation.
-  let refPoints = [];
-  let curPoints = [];
-  for (let i = 0; i < numGoodMatches; i++) {
-    let m = goodMatches[i];
-    // For each match, get the point from the reference image and the current frame.
-    let kpRef = refKeypoints.get(m.queryIdx);
-    let kpCur = keypoints.get(m.trainIdx);
-    refPoints.push(kpRef.pt.x, kpRef.pt.y);
-    curPoints.push(kpCur.pt.x, kpCur.pt.y);
-  }
-
-  // Convert the point arrays into cv.Mat objects.
-  let refMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, refPoints);
-  let curMat = cv.matFromArray(numGoodMatches, 1, cv.CV_32FC2, curPoints);
-
-  // Compute homography that maps current frame points to the reference frame.
-  let mask = new cv.Mat();
-  let homography = cv.findHomography(curMat, refMat, cv.RANSAC, 5.0, mask);
-  if (homography.empty()) {
-    console.log("Homography computation failed.");
-    // Cleanup allocated mats.
-    gray.delete(); keypoints.delete(); descriptors.delete();
-    matches.delete(); refMat.delete(); curMat.delete(); mask.delete();
-    return;
-  }
-
-  // Warp the current frame so that it aligns with the panorama.
-  // Here, we assume a new panorama size that is wider than the current one.
-  let dsize = new cv.Size(panorama.cols + src.cols, panorama.rows);
-  let warped = new cv.Mat();
-  cv.warpPerspective(src, warped, homography, dsize);
-
-  // Blend the warped current frame with the existing panorama.
-  // In this simple example, we copy the current panorama into the warped image.
-  let result = warped.clone();
-  let roi = result.roi(new cv.Rect(0, 0, panorama.cols, panorama.rows));
-  panorama.copyTo(roi);
-  roi.delete();
-
-  // Update the global panorama with the blended result.
-  panorama.delete();
-  panorama = result;
-
-  // Update reference features with the current frame's data.
-  if (refGray) { refGray.delete(); }
-  refGray = gray.clone();
-  if (refDescriptors) { refDescriptors.delete(); }
-  refDescriptors = descriptors.clone();
-
-  // For keypoints, we need to free the old vector if necessary.
-  if (refKeypoints) { refKeypoints.delete(); }
-  refKeypoints = keypoints; // Reuse the current keypoints as the new reference.
-
-  // Cleanup temporary objects.
-  matches.delete(); refMat.delete(); curMat.delete();
-  mask.delete(); warped.delete();
-  gray.delete(); descriptors.delete();
-  panoramaCount++;
-  console.log("Panorama Images combined:", panoramaCount);
-
-    }
+    
 
     async function endHomoProcess(event) {
       event.preventDefault();
