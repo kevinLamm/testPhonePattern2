@@ -670,18 +670,37 @@ function warpStitchImages(storedFrames) {
     blackMat.delete();
 
 
+    // Create a mask for valid pixels (non-black).
+let mask = new cv.Mat();
+cv.cvtColor(warpedFrame, mask, cv.COLOR_RGBA2GRAY);
+cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
+
+// Define the ROI in the panorama where the warped frame should be copied.
+// (For example, if you know where to place it, otherwise adjust roiRect accordingly)
+let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
+let panoramaROI = panorama.roi(roiRect);
+
+// Directly copy the warped frame into the panorama.
+warpedFrame.copyTo(panoramaROI, mask);
+
+// Clean up temporary Mats.
+mask.delete();
+panoramaROI.delete();
+warpedFrame.delete();
+
+
     // Blend the warped frame with the current panorama.
     // (This is a very basic blend—real applications might use multi-band blending.)
-    let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
-    let panoramaROI = newPanorama.roi(roiRect);
-    let blendedROI = blendImages(panoramaROI, warpedFrame);
-    blendedROI.copyTo(panoramaROI);
+    //let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
+    //let panoramaROI = newPanorama.roi(roiRect);
+    //let blendedROI = blendImages(panoramaROI, warpedFrame);
+    //blendedROI.copyTo(panoramaROI);
 
     // Cleanup: replace the current panorama with the new panorama.
-    panoramaROI.delete();
-    blendedROI.delete();
-    panorama.delete();
-    panorama = newPanorama;
+    //panoramaROI.delete();
+    //blendedROI.delete();
+    //panorama.delete();
+    //panorama = newPanorama;
 
     // Release resources for this iteration.
     kp1.delete(); kp2.delete();
@@ -739,35 +758,32 @@ function warpStitchImages(storedFrames) {
   let thresh = new cv.Mat();
   cv.threshold(gray, thresh, 1, 255, cv.THRESH_BINARY);
   
-  // Create a container for contours and hierarchy.
-let contours = new cv.MatVector();
+  let contours = new cv.MatVector();
 let hierarchy = new cv.Mat();
-
-// Find external contours on the thresholded image.
 cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-let boundingRect;
-if (contours.size() > 0) {
-    // Initialize boundingRect with the first contour.
-    boundingRect = cv.boundingRect(contours.get(0));
-    // Union bounding boxes of all contours.
-    for (let i = 1; i < contours.size(); i++) {
-        let rect = cv.boundingRect(contours.get(i));
-        let x1 = Math.min(boundingRect.x, rect.x);
-        let y1 = Math.min(boundingRect.y, rect.y);
-        let x2 = Math.max(boundingRect.x + boundingRect.width, rect.x + rect.width);
-        let y2 = Math.max(boundingRect.y + boundingRect.height, rect.y + rect.height);
-        boundingRect.x = x1;
-        boundingRect.y = y1;
-        boundingRect.width = x2 - x1;
-        boundingRect.height = y2 - y1;
-    }
+if (contours.size() === 0) {
+  console.log("No contours found. Using full image for cropping.");
+  boundingRect = new cv.Rect(0, 0, fixedPanorama.cols, fixedPanorama.rows);
+} else {
+  // Compute the union of all contour bounding boxes.
+  boundingRect = cv.boundingRect(contours.get(0));
+  for (let i = 1; i < contours.size(); i++) {
+    let rect = cv.boundingRect(contours.get(i));
+    let x1 = Math.min(boundingRect.x, rect.x);
+    let y1 = Math.min(boundingRect.y, rect.y);
+    let x2 = Math.max(boundingRect.x + boundingRect.width, rect.x + rect.width);
+    let y2 = Math.max(boundingRect.y + boundingRect.height, rect.y + rect.height);
+    boundingRect.x = x1;
+    boundingRect.y = y1;
+    boundingRect.width = x2 - x1;
+    boundingRect.height = y2 - y1;
+  }
 }
 
-// Clean up
 hierarchy.delete();
 contours.delete();
-  
+
   // Crop the panorama using the bounding rectangle.
   // Clone so that croppedPanorama owns its own data.
   let croppedPanorama = fixedPanorama.roi(boundingRect).clone();
