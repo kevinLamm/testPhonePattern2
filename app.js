@@ -783,6 +783,7 @@ if (contours.size() === 0) {
     boundingRect.width = x2 - x1;
     boundingRect.height = y2 - y1;
   }
+  console.log("Cropped to Bounds.");
 }
 
 
