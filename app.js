@@ -687,6 +687,7 @@ warpedFrame.copyTo(panoramaROI, mask);
 mask.delete();
 panoramaROI.delete();
 warpedFrame.delete();
+panorama.delete();
 panorama = newPanorama;
 
 
