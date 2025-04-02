@@ -678,7 +678,7 @@ cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
 // Define the ROI in the panorama where the warped frame should be copied.
 // (For example, if you know where to place it, otherwise adjust roiRect accordingly)
 let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
-let panoramaROI = panorama.roi(roiRect);
+let panoramaROI = newPanorama.roi(roiRect);
 
 // Directly copy the warped frame into the panorama.
 warpedFrame.copyTo(panoramaROI, mask);
@@ -687,6 +687,7 @@ warpedFrame.copyTo(panoramaROI, mask);
 mask.delete();
 panoramaROI.delete();
 warpedFrame.delete();
+panorama = newPanorama;
 
 
     // Blend the warped frame with the current panorama.
