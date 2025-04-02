@@ -764,11 +764,11 @@ panorama = newPanorama;
 let hierarchy = new cv.Mat();
 cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+let boundingRect;
 if (contours.size() === 0) {
   console.log("No contours found. Using full image for cropping.");
   boundingRect = new cv.Rect(0, 0, fixedPanorama.cols, fixedPanorama.rows);
   updateDebugLabel("No contours found. Using full image for cropping.");
- 
 } else {
   // Compute the union of all contour bounding boxes.
   boundingRect = cv.boundingRect(contours.get(0));
@@ -784,6 +784,7 @@ if (contours.size() === 0) {
     boundingRect.height = y2 - y1;
   }
 }
+
 
 hierarchy.delete();
 contours.delete();
