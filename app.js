@@ -640,7 +640,8 @@ function warpStitchImages(storedFrames) {
     let dstMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, flattenPoints(dstPoints));
 
     // Compute homography using RANSAC.
-    let H = cv.findHomography(dstMat, srcMat, cv.RANSAC);
+    let ransacReprojThreshold = 3;  
+    let H = cv.findHomography(dstMat, srcMat, cv.RANSAC, ransacReprojThreshold);
 
     // Estimate the size for warping the next frame.
     // (Here we simply assume the new panorama will be wide enough to hold both images.)
