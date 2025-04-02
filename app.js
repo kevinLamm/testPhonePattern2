@@ -686,7 +686,7 @@ warpedFrame.copyTo(panoramaROI, mask);
 // Clean up temporary Mats.
 mask.delete();
 panoramaROI.delete();
-warpedFrame.delete();
+
 panorama.delete();
 panorama = newPanorama;
 
@@ -767,6 +767,8 @@ cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_S
 if (contours.size() === 0) {
   console.log("No contours found. Using full image for cropping.");
   boundingRect = new cv.Rect(0, 0, fixedPanorama.cols, fixedPanorama.rows);
+  updateDebugLabel("No contours found. Using full image for cropping.");
+ 
 } else {
   // Compute the union of all contour bounding boxes.
   boundingRect = cv.boundingRect(contours.get(0));
