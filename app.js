@@ -739,12 +739,34 @@ function warpStitchImages(storedFrames) {
   let thresh = new cv.Mat();
   cv.threshold(gray, thresh, 1, 255, cv.THRESH_BINARY);
   
-  // Find all non-zero (non-black) points
-  let nonZero = new cv.Mat();
-  cv.findNonZero(thresh, nonZero);
-  
-  // Compute the bounding rectangle of the non-zero points
-  let boundingRect = cv.boundingRect(nonZero);
+  // Create a container for contours and hierarchy.
+let contours = new cv.MatVector();
+let hierarchy = new cv.Mat();
+
+// Find external contours on the thresholded image.
+cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+let boundingRect;
+if (contours.size() > 0) {
+    // Initialize boundingRect with the first contour.
+    boundingRect = cv.boundingRect(contours.get(0));
+    // Union bounding boxes of all contours.
+    for (let i = 1; i < contours.size(); i++) {
+        let rect = cv.boundingRect(contours.get(i));
+        let x1 = Math.min(boundingRect.x, rect.x);
+        let y1 = Math.min(boundingRect.y, rect.y);
+        let x2 = Math.max(boundingRect.x + boundingRect.width, rect.x + rect.width);
+        let y2 = Math.max(boundingRect.y + boundingRect.height, rect.y + rect.height);
+        boundingRect.x = x1;
+        boundingRect.y = y1;
+        boundingRect.width = x2 - x1;
+        boundingRect.height = y2 - y1;
+    }
+}
+
+// Clean up
+hierarchy.delete();
+contours.delete();
   
   // Crop the panorama using the bounding rectangle.
   // Clone so that croppedPanorama owns its own data.
@@ -753,7 +775,7 @@ function warpStitchImages(storedFrames) {
   // Cleanup temporary Mats for cropping
   gray.delete();
   thresh.delete();
-  nonZero.delete();
+  
   
   // Optionally, delete fixedPanorama now that we've cloned the cropped area
   fixedPanorama.delete();
