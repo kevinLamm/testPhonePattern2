@@ -426,7 +426,7 @@ function simplifyContour(contour, epsilonFactor = 0.002) {
 
 // Global array to store frames
 let storedFrames = [];
-const MAX_STORED_FRAMES = 30; // Example limit
+const MAX_STORED_FRAMES = 50; // Example limit
 
 function processFrame() {
     if (!processing) return;
@@ -488,7 +488,7 @@ function processFrame() {
     frameCount++;
     
     // Store every 5rd src for post processing
-    if (homo && homoProcessing && frameCount % 5 === 0) {
+    if (homo && homoProcessing && frameCount % 10 === 0) {
       // Clone src and store it in the array
       let clonedFrame = src.clone();
       storedFrames.push(clonedFrame);
@@ -670,21 +670,47 @@ function warpStitchImages(storedFrames) {
     blackMat.delete();
 
 
-    // Create a mask for valid pixels (non-black).
+    // Create a mask for valid (non-black) pixels.
 let mask = new cv.Mat();
 cv.cvtColor(warpedFrame, mask, cv.COLOR_RGBA2GRAY);
 cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
 
-// Define the ROI in the panorama where the warped frame should be copied.
-// (For example, if you know where to place it, otherwise adjust roiRect accordingly)
+// Apply a Gaussian blur to smooth the mask edges.
+let ksize = new cv.Size(21, 21); // Adjust kernel size as needed
+cv.GaussianBlur(mask, mask, ksize, 0);
+
+// Convert mask to float in range [0, 1]
+let maskFloat = new cv.Mat();
+mask.convertTo(maskFloat, cv.CV_32FC1, 1.0 / 255.0);
+
+// Get the ROI from the panorama.
 let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
 let panoramaROI = newPanorama.roi(roiRect);
 
-// Directly copy the warped frame into the panorama.
-warpedFrame.copyTo(panoramaROI, mask);
+// Convert images to float for blending.
+let warpedFloat = new cv.Mat();
+warpedFrame.convertTo(warpedFloat, cv.CV_32FC3);
+let roiFloat = new cv.Mat();
+panoramaROI.convertTo(roiFloat, cv.CV_32FC3);
+
+// Blend: result = warpedFloat * mask + roiFloat * (1 - mask)
+let blended = new cv.Mat();
+let invMask = new cv.Mat();
+cv.subtract(new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0)), maskFloat, invMask);
+cv.multiply(warpedFloat, maskFloat, warpedFloat);
+cv.multiply(roiFloat, invMask, roiFloat);
+cv.add(warpedFloat, roiFloat, blended);
+
+// Convert back to the original type and copy to the panorama ROI.
+blended.convertTo(panoramaROI, panoramaROI.type());
 
 // Clean up temporary Mats.
 mask.delete();
+maskFloat.delete();
+warpedFloat.delete();
+roiFloat.delete();
+invMask.delete();
+blended.delete();
 panoramaROI.delete();
 
 panorama.delete();
