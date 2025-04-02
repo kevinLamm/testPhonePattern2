@@ -575,17 +575,6 @@ function flattenPoints(points) {
   return flat;
 }
 
-/**
- * Blends two images together.
- * This is a very simple blending function using addWeighted.
- * In practice, you might want a more advanced blending algorithm.
- */
-function blendImages(img1, img2) {
-  // Assume both images are the same size for this simple example.
-  let blended = new cv.Mat();
-  cv.addWeighted(img1, 0.5, img2, 0.5, 0, blended);
-  return blended;
-}
 
 /**
  * warpStitchImages takes an array of cv.Mat images (storedFrames)
@@ -670,65 +659,28 @@ function warpStitchImages(storedFrames) {
     blackMat.delete();
 
 
-    // Create a mask for valid (non-black) pixels.
+    // Create a mask for valid pixels (non-black).
 let mask = new cv.Mat();
 cv.cvtColor(warpedFrame, mask, cv.COLOR_RGBA2GRAY);
 cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
 
-// Apply a Gaussian blur to smooth the mask edges.
-let ksize = new cv.Size(21, 21); // Adjust kernel size as needed
-cv.GaussianBlur(mask, mask, ksize, 0);
-
-// Convert mask to float in range [0, 1]
-let maskFloat = new cv.Mat();
-mask.convertTo(maskFloat, cv.CV_32FC1, 1.0 / 255.0);
-
-// Get the ROI from the panorama.
+// Define the ROI in the panorama where the warped frame should be copied.
+// (For example, if you know where to place it, otherwise adjust roiRect accordingly)
 let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
 let panoramaROI = newPanorama.roi(roiRect);
 
-// Convert images to float for blending.
-let warpedFloat = new cv.Mat();
-warpedFrame.convertTo(warpedFloat, cv.CV_32FC3);
-let roiFloat = new cv.Mat();
-panoramaROI.convertTo(roiFloat, cv.CV_32FC3);
-
-// Blend: result = warpedFloat * mask + roiFloat * (1 - mask)
-let blended = new cv.Mat();
-let invMask = new cv.Mat();
-cv.subtract(new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0)), maskFloat, invMask);
-cv.multiply(warpedFloat, maskFloat, warpedFloat);
-cv.multiply(roiFloat, invMask, roiFloat);
-cv.add(warpedFloat, roiFloat, blended);
-
-// Convert back to the original type and copy to the panorama ROI.
-blended.convertTo(panoramaROI, panoramaROI.type());
+// Directly copy the warped frame into the panorama.
+warpedFrame.copyTo(panoramaROI, mask);
 
 // Clean up temporary Mats.
 mask.delete();
-maskFloat.delete();
-warpedFloat.delete();
-roiFloat.delete();
-invMask.delete();
-blended.delete();
 panoramaROI.delete();
 
 panorama.delete();
 panorama = newPanorama;
 
 
-    // Blend the warped frame with the current panorama.
-    // (This is a very basic blend—real applications might use multi-band blending.)
-    //let roiRect = new cv.Rect(0, 0, warpedFrame.cols, warpedFrame.rows);
-    //let panoramaROI = newPanorama.roi(roiRect);
-    //let blendedROI = blendImages(panoramaROI, warpedFrame);
-    //blendedROI.copyTo(panoramaROI);
 
-    // Cleanup: replace the current panorama with the new panorama.
-    //panoramaROI.delete();
-    //blendedROI.delete();
-    //panorama.delete();
-    //panorama = newPanorama;
 
     // Release resources for this iteration.
     kp1.delete(); kp2.delete();
