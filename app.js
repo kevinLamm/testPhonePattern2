@@ -488,7 +488,7 @@ function processFrame() {
     frameCount++;
     
     // Store every 5rd src for post processing
-    if (homo && homoProcessing && frameCount % 10 === 0) {
+    if (homo && homoProcessing && frameCount % 4 === 0) {
       // Clone src and store it in the array
       let clonedFrame = src.clone();
       storedFrames.push(clonedFrame);
